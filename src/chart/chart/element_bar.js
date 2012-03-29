@@ -1,16 +1,16 @@
-KISSY.add("chart/element-bar",function(S,Element){
-    S.log('element-bar');
-    var P = S.namespace("Chart"),
-        Dom = S.DOM,
-        Event = S.Event,
-        darker = function(c){
-            var hsl = c.hslData(),
-                l = hsl[2],
-                s = hsl[1],
-                b  = (l + s/2) * 0.6,
-            l = b - s/2;
-            return new P.Color.hsl(hsl[0],s,l);
-        };
+KISSY.add(function(S,　Element, Util, Path){
+    var MOUSE_LEAVE = "mouse_leave",
+        MOUSE_MOVE = "mouse_move";
+
+    function darker(c) {
+        var hsl = c.hslData(),
+            l = hsl[2],
+            s = hsl[1],
+            b  = (l + s/2) * 0.6,
+        l = b - s/2;
+        return new P.Color.hsl(hsl[0],s,l);
+    }
+
     /**
      * class BarElement for Bar Chart
      */
@@ -25,11 +25,12 @@ KISSY.add("chart/element-bar",function(S,Element){
         self.initEvent();
 
         self.current = [-1,-1];
-        self.anim = new P.Anim(self.config.animationDuration,self.config.animationEasing)//,1,"bounceOut");
+        self.anim = new Util.Anim(self.config.animationDuration,self.config.animationEasing)//,1,"bounceOut");
         self.anim.init();
     }
 
-    S.extend(BarElement, P.Element,{
+    S.extend(BarElement, Element,{
+
         initData : function(cfg){
             var self      = this,
                 data      = self.data,
@@ -70,14 +71,14 @@ KISSY.add("chart/element-bar",function(S,Element){
                 barleft = left + idx2 * itemwidth + padding + idx * (barwidth + gap);
                 bartop = bottom - barheight;
 
-                color = P.Color(self.data.getColor(idx,"bar"));
+                color = Util.Color(self.data.getColor(idx,"bar"));
                 colord = darker(color);
 
                 element._left[idx2] = barleft;
                 element._top[idx2] = bartop;
                 element._width[idx2] = barwidth;
                 element._height[idx2] = barheight;
-                element._path[idx2] = new P.RectPath(barleft,bartop,barwidth,barheight);
+                element._path[idx2] = new Path.RectPath(barleft,bartop,barwidth,barheight);
                 element._x[idx2] = barleft+barwidth/2;
                 element._colors[idx2] = color;
                 element._dcolors[idx2] = colord;
@@ -130,7 +131,7 @@ KISSY.add("chart/element-bar",function(S,Element){
                         ctx.textBaseline = "top";
                         ctx.textAlign = "center";
                         data = self.data.elements()[idx];
-                        ctx.fillText(P.format(data.data, data.format), bar._x[i], bartop + 2);
+                        ctx.fillText(Util.numberFormat(data.data, data.format), bar._x[i], bartop + 2);
                         ctx.restore();
                     }
                 }
@@ -143,13 +144,13 @@ KISSY.add("chart/element-bar",function(S,Element){
         },
 
         initEvent : function(){
-            Event.on(this.chart,P.Chart.MOUSE_MOVE,this.chartMouseMove,this);
-            Event.on(this.chart,P.Chart.MOUSE_LEAVE,this.chartMouseLeave,this);
+            this.chart.on(MOUSE_MOVE,this.chartMouseMove,this);
+            this.chart.on(MOUSE_LEAVE,this.chartMouseLeave,this);
         },
 
         destory : function(){
-            Event.remove(this.chart,P.Chart.MOUSE_MOVE,this.chartMouseMove);
-            Event.remove(this.chart,P.Chart.MOUSE_LEAVE,this.chartMouseLeave);
+            this.chart.detach(MOUSE_MOVE,this.chartMouseMove);
+            this.chart.detach(MOUSE_LEAVE,this.chartMouseLeave);
         },
 
         chartMouseMove : function(ev){
@@ -200,8 +201,7 @@ KISSY.add("chart/element-bar",function(S,Element){
         }
     });
 
-    P.BarElement = BarElement;
     return BarElement;
 },{
-    requires : ["chart/element"]
+    requires : ["./element", "./util", "./path"]
 });

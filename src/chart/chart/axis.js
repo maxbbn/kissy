@@ -1,6 +1,5 @@
-KISSY.add("chart/axis", function(S) {
-    var P = KISSY.namespace("Chart"),
-        Event = S.Event,
+KISSY.add(function(S, Path) { 
+    var Event = S.Event,
         LINE = 'line',
         BAR = 'bar';
 
@@ -119,7 +118,7 @@ KISSY.add("chart/axis", function(S) {
                     bottom : bottom,
                     x : pathx
                 });
-                xd._area.push(new P.RectPath(pathleft, top, pathright - pathleft, bottom - top));
+                xd._area.push(new Path.RectPath(pathleft, top, pathright - pathleft, bottom - top));
             }
             //init Y Axis
             yd._lpath = {
@@ -142,8 +141,8 @@ KISSY.add("chart/axis", function(S) {
          */
         initEvent : function() {
             if (this.type === LINE) {
-                Event.on(this.chart, P.Chart.MOUSE_MOVE, this.chartMouseMove, this);
-                Event.on(this.chart, P.Chart.MOUSE_LEAVE, this.chartMouseLeave, this);
+                Event.on(this.chart, "mouse_move", this.chartMouseMove, this);
+                Event.on(this.chart, "mouse_leave", this.chartMouseLeave, this);
             }
         },
 
@@ -152,8 +151,8 @@ KISSY.add("chart/axis", function(S) {
          */
         destory : function() {
             if (this.type === ATYPE.LINE) {
-                Event.remove(this.chart, P.Chart.MOUSE_MOVE, this.chartMouseMove);
-                Event.remove(this.chart, P.Chart.MOUSE_LEAVE, this.chartMouseLeave);
+                Event.remove(this.chart, "mouse_move", this.chartMouseMove);
+                Event.remove(this.chart, "mouse_leave", this.chartMouseLeave);
             }
         },
         //事件回调函数
@@ -314,6 +313,7 @@ KISSY.add("chart/axis", function(S) {
             ctx.restore();
         }
     });
-    P.Axis = Axis;
     return Axis;
+}, {
+    requires : ["./path"]
 });

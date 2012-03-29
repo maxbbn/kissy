@@ -1,4 +1,4 @@
-KISSY.add("chart/element-line",function(S){
+KISSY.add(function(S, Element, Util){
     var P = S.namespace("Chart"),
         Dom = S.DOM,
         Event = S.Event;
@@ -17,11 +17,11 @@ KISSY.add("chart/element-line",function(S){
         self._ready_idx = -1;
         self.init();
 
-        self.anim = new P.Anim(self.config.animationDuration,self.config.animationEasing);
+        self.anim = new Util.Anim(self.config.animationDuration,self.config.animationEasing);
         self.anim.init();
     }
 
-    S.extend(LineElement, P.Element, {
+    S.extend(LineElement, Element, {
         /**
          * 根据数据源，生成图形数据
          */
@@ -221,5 +221,5 @@ KISSY.add("chart/element-line",function(S){
     return LineElement;
 },
 {
-    requires : ["chart/element"]
+    requires : ["./element", "./util"]
 });

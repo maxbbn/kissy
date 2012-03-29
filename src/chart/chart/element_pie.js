@@ -1,17 +1,20 @@
-KISSY.add("chart/element-pie",function(S){
-    var P = S.namespace("Chart"),
-        Event = S.Event,
-        lighter = function(c){
-            if(S.isString(c)){
-                c = P.Color(c)
-            };
-            var hsl = c.hslData(),
-                s = hsl[1],
-                l = hsl[2],
-                b = l + s * 0.5;
-            l = b*1.05 - s*.5;
-            return new P.Color.hsl(hsl[0], s, l);
+KISSY.add(function(S,　Element, Util){
+    var MOUSE_LEAVE = "mouse_leave",
+        MOUSE_MOVE = "mouse_move";
+
+    function lighter(c) {
+        if(S.isString(c)){
+            c = Util.Color(c);
         };
+
+        var hsl = c.hslData(),
+            s = hsl[1],
+            l = hsl[2],
+            b = l + s * 0.5;
+
+        l = b*1.05 - s*.5;
+        return new Util.Color.hsl(hsl[0], s, l);
+    }
 
     function PieElement(data,chart,drawcfg){
         var self = this;
@@ -22,18 +25,19 @@ KISSY.add("chart/element-pie",function(S){
         self.drawcfg = drawcfg;
         self.initdata(drawcfg);
         self.init();
-        self.anim = new P.Anim(self.config.animationDuration,self.config.animationEasing)//,1,"bounceOut");
+        self.anim = new Util.Anim(self.config.animationDuration,self.config.animationEasing)//,1,"bounceOut");
         self.anim.init();
     }
 
-    S.extend(PieElement,P.Element,{
+    S.extend(PieElement, Element,{
         initdata : function(cfg){
             var self = this,
                 data = self.data,
                 total = 0,
                 end,
                 color,
-                pecent,pecentStart;
+                pecent,
+                pecentStart;
 
             self._x = data.config.showLabels ? cfg.width * 0.618 /2 : cfg.width/2;
             self._y = cfg.height/2;
@@ -94,7 +98,13 @@ KISSY.add("chart/element-pie",function(S){
                 ctx.fillRect(labelX - 10,labelY-5,10,10);
                 ctx.closePath();
                 ctx.fillStyle = items[idx].textColor;
-                labelText = S.substitute(self.data.config.labelTemplete,{data:P.format(elem.data,elem.format),name:elem.name, pecent : P.format(elem.data/sum * 100,"0.00")});
+                labelText = S.substitute(self.data.config.labelTemplete, 
+                    { 
+                        data : Util.numberFormat(elem.data,elem.format),
+                        name : elem.name,
+                        pecent : Util.numberFormat(elem.data/sum * 100,"0.00")
+                    }
+                );
                 ctx.fillText(labelText, labelX - 15, labelY);
             });
             ctx.restore();
@@ -160,12 +170,12 @@ KISSY.add("chart/element-pie",function(S){
         },
 
         init : function(){
-            Event.on(this.chart,P.Chart.MOUSE_MOVE,this.chartMouseMove,this);
-            Event.on(this.chart,P.Chart.MOUSE_LEAVE,this.chartMouseLeave,this);
+            this.chart.on(MOUSE_MOVE,this.chartMouseMove,this);
+            this.chart.on(MOUSE_LEAVE,this.chartMouseLeave,this);
         },
         destory : function(){
-            Event.remove(this.chart,P.Chart.MOUSE_MOVE,this.chartMouseMove);
-            Event.remove(this.chart,P.Chart.MOUSE_LEAVE,this.chartMouseLeave);
+            this.chart.detach(MOUSE_MOVE,this.chartMouseMove);
+            this.chart.detach(MOUSE_LEAVE,this.chartMouseLeave);
         },
 
         chartMouseMove : function(ev){
@@ -241,9 +251,8 @@ KISSY.add("chart/element-pie",function(S){
         }
     });
 
-    P.PieElement = PieElement;
     return PieElement;
 
 },{
-    requires : ["chart/element"]
+    requires : ["./element", "./util"]
 });

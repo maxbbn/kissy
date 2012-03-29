@@ -1,24 +1,22 @@
-KISSY.add("chart/element",function(S){
-    var P = S.namespace("Chart"),
-        Dom = S.DOM,
-        Event = S.Event;
+KISSY.add(function(S, PieElement, BarElement, LineElement){
 
+    /*
+     * 图表类型基础类
+     */
+    function Element (data, chart, drawcfg){};
 
-    function Element (data,chart,drawcfg){
-    }
-
-    S.mix(Element,{
+    S.mix(Element, {
         getElement : function(data,chart,cfg){
             var E;
             switch(data.type){
                 case "line":
-                    E = P.LineElement;
+                    E = LineElement;
                     break;
                 case "pie":
-                    E = P.PieElement;
+                    E = PieElement;
                     break;
                 case "bar":
-                    E = P.BarElement;
+                    E = BarElement;
                     break;
             }
             return new E(data,chart,cfg);
@@ -39,9 +37,7 @@ KISSY.add("chart/element",function(S){
         }
     });
 
-    S.augment(Element,
-        S.EventTarget,
-        {
+    S.augment(Element, S.EventTarget, {
         drawNames : function(ctx){
             var self = this,
                 cfg = self.drawcfg,
@@ -50,7 +46,9 @@ KISSY.add("chart/element",function(S){
                 i = l - 1,
                 br = cfg.width - cfg.paddingRight,
                 by = cfg.paddingTop - 12,
-                d,c;
+                d,
+                c;
+
             for(; i>=0; i--){
                 d = data[i];
                 if(d.notdraw){
@@ -77,17 +75,26 @@ KISSY.add("chart/element",function(S){
                 br -= 10;
             }
         },
+        /*
+         *　初始化数据和配置，只在开始时渲染一次  
+         */
         init : function(){},
-        initdata : function(){},
+        /*
+         * 解除事件绑定  
+         */
         destory : function(){},
+        /*
+         * 绘图  
+         */
         draw : function(ctx,cfg){},
-        drawBar : function(ctx,cfg){},
+        /*
+         * 解除事件绑定  
+         */
         getTooltip : function(index){}
     });
 
-
-
-
-    P.Element = Element;
     return Element;
+
+}, {
+    requires : ['./element_pie', './element_bar', './element_line'];
 });

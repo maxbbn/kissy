@@ -1,6 +1,4 @@
-KISSY.add("chart/data",function(S){
-    var P = S.namespace("Chart");
-
+KISSY.add(function(S, Util){
     /**
      * 图表默认配置
      */
@@ -228,7 +226,7 @@ KISSY.add("chart/data",function(S){
                 k = Math.ceil((idx + 1)/3);
                 h = i*colorgap + colorgap/j * (k-1);
             }
-            return P.Color.hsl(h,s,l).hexTriplet();
+            return Util.Color.hsl(h,s,l).hexTriplet();
         },
 
 
@@ -277,7 +275,7 @@ KISSY.add("chart/data",function(S){
                     elem.label,
                     {
                         name : elem.name,
-                        data : elem.format?P.format(elem.data, elem.format):elem.data
+                        data : elem.format ? Util.Format(elem.data, elem.format) : elem.data
                     }
                 );
                 self._max = Math.max(self._max, elem.data);
@@ -366,6 +364,8 @@ KISSY.add("chart/data",function(S){
     });
 
     P.Data = Data;
-
     return Data;
-},{requires : ["chart/color"]});
+
+}, {
+    requires : ["./util"]
+});

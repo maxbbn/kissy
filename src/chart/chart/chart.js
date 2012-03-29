@@ -1,9 +1,6 @@
-KISSY.add("chart", function(S) {
+KISSY.add("chart", function(S, Anim, Data, Axis, Frame, SimpleTooltip) {
     var Event = S.Event,
         Dom = S.DOM;
-
-    //kissy < 1.2
-    var P = S.namespace("Chart");
 
 
     /**
@@ -37,7 +34,7 @@ KISSY.add("chart", function(S) {
         self.ctx = -1;
 
         self.tooltip = Chart.getTooltip();
-        self._chartAnim = new P.Anim(0.3, "easeIn");
+        self._chartAnim = new Anim(0.3, "easeIn");
         if(data){
             self.data = data;
             self._initContext();
@@ -45,27 +42,8 @@ KISSY.add("chart", function(S) {
 
     }
 
-    /**
-     * 获取ToolTip 对象， 所有图表共享一个Tooltip
-     */
-    Chart.getTooltip = function() {
-        if (!Chart.tooltip) {
-            Chart.tooltip = new P.SimpleTooltip();
-        }
-        return Chart.tooltip;
-    };
-    /**
-     * Event Mouse leave
-     */
-    Chart.MOUSE_LEAVE = "mouse_leave";
 
-    /**
-     * Event Mouse move
-     */
-    Chart.MOUSE_MOVE= "mouse_move";
-
-    S.augment(Chart,
-        S.EventTarget, /**@lends Chart.prototype*/{
+    S.extend(Chart, S.Base, /**@lends Chart.prototype*/ {
 
         /**
          * render form
@@ -80,12 +58,14 @@ KISSY.add("chart", function(S) {
                 self._initContext();
                 return;
             }
+
             //wait... context to init
             if(self.ctx === 0){
                 self.data = data;
                 return;
             }
-            self._data = new P.Data(data);
+
+            self._data = new Data(data);
             if(!self._data) return;
             data = self._data;
 
@@ -100,16 +80,16 @@ KISSY.add("chart", function(S) {
             if (data.type === "bar" || data.type === "line") {
 
                 //generate the max of Y axis
-                self._drawcfg.max = data.axis().y.max || P.Axis.getMax(data.max(), self._drawcfg);
+                self._drawcfg.max = data.axis().y.max || Axis.getMax(data.max(), self._drawcfg);
 
-                self.axis = new P.Axis(data, self, self._drawcfg);
-                self._frame = new P.Frame(self._data, self._drawcfg);
+                self.axis = new Axis(data, self, self._drawcfg);
+                self._frame = new Frame(self._data, self._drawcfg);
                 self.layers.push(self.axis);
                 self.layers.push(self._frame);
 
             }
 
-            self.element = P.Element.getElement(self._data, self, self._drawcfg);
+            self.element = Element.getElement(self._data, self, self._drawcfg);
 
             self.layers.push(self.element);
 
@@ -406,21 +386,41 @@ KISSY.add("chart", function(S) {
             }
             this.fire(Chart.MOUSE_LEAVE);
         }
+    },
+    /**@lends Chart*/
+    {
+        /**
+         * 获取ToolTip 对象， 所有图表共享一个Tooltip实例
+         */
+        getTooltip : function () {
+            if (!Chart.tooltip) {
+                Chart.tooltip = new SimpleTooltip();
+            }
+            return Chart.tooltip;
+        },
+        /**
+         * Event Mouse leave
+         */
+        MOUSE_LEAVE : "mouse_leave",
+
+        /**
+         * Event Mouse move
+         */
+        MOUSE_MOVE : "mouse_move"
     });
 
     /*export*/
-    P.Chart = Chart;
     return Chart;
 }, {
     requires:[
-        'chart/anim',
-        'chart/axis',
-        'chart/simpletooltip',
-        'chart/frame',
-        'chart/element',
-        'chart/element-bar',
-        'chart/element-line',
-        'chart/element-pie',
-        'chart/data'
+        './anim',
+        './data',
+        './axis',
+        './frame',
+        './simpletooltip',
+        './element',
+        './element-bar',
+        './element-line',
+        './element-pie'
     ]
 });
