@@ -1,10 +1,11 @@
 .ks-chart-tooltip{
-    box-shadow:1px 1px 2px #555;
+    box-shadow:1px 1px 3px #000;
+    -webkit-box-shadow:v1px 1px 3px #000;
     padding:3px 5px;
     position:absolute;
     z-index:9999;
     background:#333;
-    background:rgba(20,20,20,.9);
+    background:rgba(30,30,30,.95);
     color:#fff;
     max-length:120px;
     border-radius:4px;
