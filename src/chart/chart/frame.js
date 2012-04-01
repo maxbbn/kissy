@@ -1,12 +1,11 @@
-KISSY.add("chart/frame",function(S){
-    var P = S.namespace("Chart");
+KISSY.add("chart/frame",function(S, Path){
 
     /**
      * The Border Layer
      */
     function Frame(data,cfg){
         this.data = data;
-        this.path = new P.RectPath(
+        this.path = new Path.RectPath(
                         cfg.paddingLeft,
                         cfg.paddingTop,
                         cfg.width - cfg.paddingRight - cfg.paddingLeft,
@@ -23,6 +22,8 @@ KISSY.add("chart/frame",function(S){
             ctx.restore();
         }
     });
-    P.Frame = Frame;
+
     return Frame;
+}, {
+    requires : ['./path']
 });

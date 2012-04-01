@@ -1,9 +1,9 @@
-KISSY.add(function(S,　Element, Util){
+KISSY.add(function (S, Util) {
     var MOUSE_LEAVE = "mouse_leave",
         MOUSE_MOVE = "mouse_move";
 
     function lighter(c) {
-        if(S.isString(c)){
+        if (S.isString(c)) {
             c = Util.Color(c);
         };
 
@@ -16,7 +16,7 @@ KISSY.add(function(S,　Element, Util){
         return new Util.Color.hsl(hsl[0], s, l);
     }
 
-    function PieElement(data,chart,drawcfg){
+    function PieElement(data, chart, drawcfg) {
         var self = this;
         self.data = data;
         self.chart = chart;
@@ -29,8 +29,8 @@ KISSY.add(function(S,　Element, Util){
         self.anim.init();
     }
 
-    S.extend(PieElement, Element,{
-        initdata : function(cfg){
+    S.augment(PieElement, S.EventTarget, {
+        initdata : function (cfg) {
             var self = this,
                 data = self.data,
                 total = 0,
@@ -51,7 +51,7 @@ KISSY.add(function(S,　Element, Util){
             total = data.sum();
 
             pecentStart = 0;
-            S.each(data.elements(),function(item,idx){
+            S.each(data.elements(),function (item,idx) {
                 pecent   = item.data/total;
                 end = pecentStart + pecent;
                 color = data.getColor(idx);
@@ -65,7 +65,7 @@ KISSY.add(function(S,　Element, Util){
                     labelY : 50 + 20 * idx
                 });
                 pecentStart = end;
-                if(idx === 0 ){
+                if (idx === 0 ) {
                     self.angleStart += pecent * Math.PI;
                 }
             });
@@ -76,7 +76,7 @@ KISSY.add(function(S,　Element, Util){
          * Draw the Labels for all Element
          * @private
          */
-        drawLabels: function(ctx){
+        drawLabels: function (ctx) {
             var self = this,
                 data = self.data,
                 items = self.items,
@@ -87,7 +87,7 @@ KISSY.add(function(S,　Element, Util){
             ctx.save();
             ctx.textBaseline = 'middle';
             ctx.textAlign = 'right';
-            data.eachElement(function(elem,idx){
+            data.eachElement(function (elem,idx) {
                 item = items[idx];
                 labelY = item.labelY;
                 labelX = item.labelRight;
@@ -98,9 +98,8 @@ KISSY.add(function(S,　Element, Util){
                 ctx.fillRect(labelX - 10,labelY-5,10,10);
                 ctx.closePath();
                 ctx.fillStyle = items[idx].textColor;
-                labelText = S.substitute(self.data.config.labelTemplete, 
-                    { 
-                        data : Util.numberFormat(elem.data,elem.format),
+                labelText = S.substitute(self.config.labelTemplate, {
+                        data : Util.numberFormat(elem.data, elem.format),
                         name : elem.name,
                         pecent : Util.numberFormat(elem.data/sum * 100,"0.00")
                     }
@@ -110,7 +109,7 @@ KISSY.add(function(S,　Element, Util){
             ctx.restore();
         },
 
-        draw : function(ctx){
+        draw : function (ctx) {
             var self = this,
                 px = self._x,
                 py = self._y,
@@ -120,33 +119,24 @@ KISSY.add(function(S,　Element, Util){
                 k = self.anim.get(),
                 config = self.data.config,
                 gra;
-            if(k < 1){
+            if (k < 1) {
                 self.fire("redraw");
             }
-            if(config.showLabels){
+            if (config.showLabels) {
                 self.drawLabels(ctx);
             }
-
-            //draw bg shadow
-            if(config.shadow){
-                ctx.save();
-                ctx.fillStyle = "#fff";
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = "black";
-                ctx.beginPath();
-                ctx.moveTo(px,py);
-                bgStart = self.angleStart;
-                bgEnd = self.antiClock?bgStart - Math.PI * 2 * k : bgStart + Math.PI * 2 * k;
-                ctx.arc(px, py, pr-1, bgStart, bgEnd, self.antiClock);
-                ctx.fill();
-                ctx.restore();
+            ctx.save();
+            // shadow stack
+            if (config.drawShadow) {
+                ctx.shadowBlur = config.shadow.blur;
+                ctx.shadowColor = config.shadow.color;
             }
 
             ctx.save();
             ctx.lineWidth = 0.5;
             ctx.strokeStyle = "#fff";
 
-            S.each(self.items, function(p, idx){
+            S.each(self.items, function (p, idx) {
                 start = p.start * k * 2 * Math.PI;
                 end = p.end* k * 2 * Math.PI;
                 ctx.save();
@@ -154,31 +144,34 @@ KISSY.add(function(S,　Element, Util){
                 ctx.beginPath();
                 p._currentStart = self.antiClock?self.angleStart-start:self.angleStart+start;
                 p._currentEnd = self.antiClock?self.angleStart-end-0.005 :self.angleStart+end+0.005;
-                if(idx === 0 && k >= 1 && config.firstPieOut) {
+
+                if (idx === 0 && k >= 1 && config.firstPieOut) {
                     ctx.moveTo(px + 2,py - 2);
                     ctx.arc(px + 2, py - 2, pr, p._currentStart, p._currentEnd, self.antiClock);
-                }else{
+                } else {
                     ctx.moveTo(px,py);
                     ctx.arc(px, py, pr, p._currentStart, p._currentEnd, self.antiClock);
                 }
                 ctx.closePath();
                 ctx.fill();
-                ctx.stroke();
+                //ctx.stroke();
                 ctx.restore();
             });
             ctx.restore();
+            //shadw stack
+            ctx.restore();
         },
 
-        init : function(){
+        init : function () {
             this.chart.on(MOUSE_MOVE,this.chartMouseMove,this);
             this.chart.on(MOUSE_LEAVE,this.chartMouseLeave,this);
         },
-        destory : function(){
+        destory : function () {
             this.chart.detach(MOUSE_MOVE,this.chartMouseMove);
             this.chart.detach(MOUSE_LEAVE,this.chartMouseLeave);
         },
 
-        chartMouseMove : function(ev){
+        chartMouseMove : function (ev) {
             var self = this,
                 pr = self._r,
                 dx = ev.x - self._x,
@@ -188,7 +181,7 @@ KISSY.add(function(S,　Element, Util){
                 item, items = self.items;
 
             // if mouse out of pie
-            if(dx*dx + dy*dy > pr*pr){
+            if (dx*dx + dy*dy > pr*pr) {
                 self.fire("hidetooltip");
                 self._currentIndex = -1;
                 self.fire("redraw");
@@ -197,27 +190,27 @@ KISSY.add(function(S,　Element, Util){
 
             //get the current mouse angle from 
             //the center of the pie
-            if(dx != 0 ){
+            if (dx != 0 ) {
                 angle = Math.atan(dy/dx);
-                if(dy < 0 && dx > 0){
+                if (dy < 0 && dx > 0) {
                     angle += 2*Math.PI;
                 }
-                if(dx < 0){
+                if (dx < 0) {
                     angle += Math.PI;
                 }
-            }else{
+            } else {
                 angle = dy >= 0 ? Math.PI/2 : 3 * Math.PI/2;
             }
 
             //find the pieace under mouse
-            for(i = items.length - 1; i >= 0 ; i--){
+            for(i = items.length - 1; i >= 0 ; i--) {
                 item = items[i];
                 t = Math.PI * 2
 
                 anglestart = item._currentStart;
                 angleend = item._currentEnd;
 
-                if(anglestart > angleend){
+                if (anglestart > angleend) {
                     t = anglestart;
                     anglestart = angleend;
                     angleend = t;
@@ -227,16 +220,16 @@ KISSY.add(function(S,　Element, Util){
 
                 anglestart = anglestart % (Math.PI * 2)
 
-                if(anglestart < 0 ){
-                    if(anglestart + t < 0 || angle > Math.PI){
+                if (anglestart < 0 ) {
+                    if (anglestart + t < 0 || angle > Math.PI) {
                         anglestart = anglestart + Math.PI * 2;
                     }
                 }
 
-                if(angle > anglestart && angle < anglestart + t && i !== self._currentIndex){
+                if (angle > anglestart && angle < anglestart + t && i !== self._currentIndex) {
                     self._currentIndex = i;
                     self.fire("redraw");
-                    self.fire("showtooltip",{
+                    self.fire("showtooltip", {
                         message : self.data.elements()[i].label
                     });
                 }
@@ -244,7 +237,7 @@ KISSY.add(function(S,　Element, Util){
 
         },
 
-        chartMouseLeave : function(ev){
+        chartMouseLeave : function (ev) {
             this._currentIndex = -1;
             this.fire("hidetooltip");
             this.fire("redraw");
@@ -254,5 +247,5 @@ KISSY.add(function(S,　Element, Util){
     return PieElement;
 
 },{
-    requires : ["./element", "./util"]
+    requires : ["./util"]
 });

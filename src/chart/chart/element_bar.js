@@ -1,4 +1,4 @@
-KISSY.add(function(S,　Element, Util, Path){
+KISSY.add(function (S, Util, Path) {
     var MOUSE_LEAVE = "mouse_leave",
         MOUSE_MOVE = "mouse_move";
 
@@ -8,13 +8,13 @@ KISSY.add(function(S,　Element, Util, Path){
             s = hsl[1],
             b  = (l + s/2) * 0.6,
         l = b - s/2;
-        return new P.Color.hsl(hsl[0],s,l);
+        return new Util.Color.hsl(hsl[0],s,l);
     }
 
     /**
      * class BarElement for Bar Chart
      */
-    function BarElement(data,chart,drawcfg){
+    function BarElement(data, chart, drawcfg) {
         var self = this;
         self.data = data;
         self.chart = chart;
@@ -29,9 +29,9 @@ KISSY.add(function(S,　Element, Util, Path){
         self.anim.init();
     }
 
-    S.extend(BarElement, Element,{
+    S.augment(BarElement, S.EventTarget, {
 
-        initData : function(cfg){
+        initData : function (cfg) {
             var self      = this,
                 data      = self.data,
                 elemLength= data.elements().length,
@@ -48,10 +48,10 @@ KISSY.add(function(S,　Element, Util, Path){
             self.maxLength = maxlength;
 
             self.items = items;
-            self.data.eachElement(function(elem,idx,idx2){
-                if(idx2 === -1) idx2 = 0;
+            self.data.eachElement(function (elem,idx,idx2) {
+                if (idx2 === -1) idx2 = 0;
 
-                if(!items[idx]){
+                if (!items[idx]) {
                     items[idx] = {
                         _x : [],
                         _top  :  [],
@@ -91,7 +91,7 @@ KISSY.add(function(S,　Element, Util, Path){
          * draw the barElement
          * @param {Object} Canvas Object
          */
-        draw : function(ctx){
+        draw : function (ctx) {
             var self = this,
                 data = self.items,
                 ml = self.maxLength,
@@ -101,12 +101,12 @@ KISSY.add(function(S,　Element, Util, Path){
                 k = self.anim.get(),
                 i;
 
-            if(self.data.config.showLabels){
+            if (self.data.config.showLabels) {
                 self.drawNames(ctx);
             }
 
-            S.each(data, function(bar, idx){
-                for(i = 0; i< ml; i++){
+            S.each(data, function (bar, idx) {
+                for(i = 0; i< ml; i++) {
                     barleft = bar._left[i];
                     barheight = bar._height[i];
                     cheight = barheight * k;
@@ -124,7 +124,7 @@ KISSY.add(function(S,　Element, Util, Path){
                     //ctx.fillStyle = color;
                     ctx.fillRect(barleft,bartop,barwidth,cheight);
                     //draw label on the bar
-                    if(ml === 1 && barheight > 25){
+                    if (ml === 1 && barheight > 25) {
                         ctx.save();
                         ctx.fillStyle = "#fff";
                         ctx.font = "20px bold Arial";
@@ -138,58 +138,60 @@ KISSY.add(function(S,　Element, Util, Path){
 
             });
 
-            if(k < 1) {
+            if (k < 1) {
                 self.fire("redraw");
             }
         },
 
-        initEvent : function(){
+        initEvent : function () {
             this.chart.on(MOUSE_MOVE,this.chartMouseMove,this);
             this.chart.on(MOUSE_LEAVE,this.chartMouseLeave,this);
         },
 
-        destory : function(){
+        destory : function () {
             this.chart.detach(MOUSE_MOVE,this.chartMouseMove);
             this.chart.detach(MOUSE_LEAVE,this.chartMouseLeave);
         },
 
-        chartMouseMove : function(ev){
-            var current = [-1,-1],
-                items = this.items;
+        chartMouseMove : function (ev) {
+            var self = this,
+                current = [-1,-1],
+                items = self.items;
 
-            S.each(this.items, function(bar,idx){
-                S.each(bar._path, function(path,index){
-                    if(path.inpath(ev.x,ev.y)){
+            S.each(self.items, function (bar,idx) {
+                S.each(bar._path, function (path,index) {
+                    if (path.inpath(ev.x,ev.y)) {
                         current = [idx,index];
                     }
                 });
             });
 
-            if( current[0] === this.current[0] &&
-                current[1] === this.current[1])
-            {
+            if ( current[0] === self.current[0] && current[1] === self.current[1]) {
                 return;
             }
-            this.current = current;
-            if(current[0] + current[1] >= 0){
-                this.fire("barhover",{index:current});
-                this.fire("showtooltip",{
+
+            self.current = current;
+
+            if (current[0] + current[1] >= 0) {
+                self.fire("barhover",{index:current});
+                self.fire("showtooltip",{
                     top : items[current[0]]._top[current[1]],
                     left : items[current[0]]._x[current[1]],
-                    message : this.getTooltip(current)
+                    message : self.getTooltip(current)
                 });
             }else{
-                this.fire("hidetooltip");
+                self.fire("hidetooltip");
             }
         },
-        chartMouseLeave : function(){
+
+        chartMouseLeave : function () {
             this.current = [-1,-1];
         },
         /**
          * get tip HTML by id
          * @return {String}
          **/
-        getTooltip : function(index){
+        getTooltip : function (index) {
             var self = this,
                 eidx = index[0],
                 didx = index[1],
@@ -198,10 +200,48 @@ KISSY.add(function(S,　Element, Util, Path){
                     "<span style='color:"+item._colors[didx].css()+";'>"+
                     item._labels[didx]+"</span></div>";
             return msg;
+        },
+        
+        drawNames : function (ctx) {
+            var self = this,
+                cfg = self.drawcfg,
+                data = self.data.elements(),
+                l = data.length,
+                i = l - 1,
+                br = cfg.width - cfg.paddingRight,
+                by = cfg.paddingTop - 12,
+                d,
+                c;
+
+            for(; i>=0; i--) {
+                d = data[i];
+                if (d.notdraw) {
+                    continue;
+                }
+                c = self.data.getColor(i);
+                //draw text
+                ctx.save();
+                ctx.textAlign = "end";
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = "#808080";
+                ctx.font = "12px Arial";
+                ctx.fillText(d.name, br, by);
+                br -= ctx.measureText(d.name).width + 10;
+                ctx.restore();
+                //draw color dot
+                ctx.save();
+                ctx.beginPath();
+                ctx.fillStyle = c;
+                ctx.arc(br,by,5,0,Math.PI*2,true);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+                br -= 10;
+            }
         }
     });
 
     return BarElement;
 },{
-    requires : ["./element", "./util", "./path"]
+    requires : ["./util", "./path"]
 });

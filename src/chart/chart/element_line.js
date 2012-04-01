@@ -1,7 +1,4 @@
-KISSY.add(function(S, Element, Util){
-    var P = S.namespace("Chart"),
-        Dom = S.DOM,
-        Event = S.Event;
+KISSY.add(function(S, Util){
     /**
      * class Element for Line chart
      */
@@ -21,7 +18,7 @@ KISSY.add(function(S, Element, Util){
         self.anim.init();
     }
 
-    S.extend(LineElement, Element, {
+    S.augment(LineElement, S.EventTarget, {
         /**
          * 根据数据源，生成图形数据
          */
@@ -174,13 +171,13 @@ KISSY.add(function(S, Element, Util){
 
         init : function(){
             this._ready_idx = 0;
-            Event.on(this.chart,"axishover",this._axis_hover,this);
-            Event.on(this.chart,"axisleave",this._axis_leave,this);
+            this.chart.on("axishover",this._axis_hover,this);
+            this.chart.on("axisleave",this._axis_leave,this);
         },
 
         destory : function(){
-            Event.remove(this.chart,"axishover",this._axis_hover);
-            Event.remove(this.chart,"axisleave",this._axis_leave);
+            this.chart.detach("axishover",this._axis_hover);
+            this.chart.detach("axisleave",this._axis_leave);
         },
 
         _axis_hover : function(e){
@@ -213,13 +210,49 @@ KISSY.add(function(S, Element, Util){
             });
             ul += "</ul>";
             return ul;
+        },
+        drawNames : function(ctx){
+            var self = this,
+                cfg = self.drawcfg,
+                data = self.data.elements(),
+                l = data.length,
+                i = l - 1,
+                br = cfg.width - cfg.paddingRight,
+                by = cfg.paddingTop - 12,
+                d,
+                c;
+
+            for(; i>=0; i--){
+                d = data[i];
+                if(d.notdraw){
+                    continue;
+                }
+                c = self.data.getColor(i);
+                //draw text
+                ctx.save();
+                ctx.textAlign = "end";
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = "#808080";
+                ctx.font = "12px Arial";
+                ctx.fillText(d.name, br, by);
+                br -= ctx.measureText(d.name).width + 10;
+                ctx.restore();
+                //draw color dot
+                ctx.save();
+                ctx.beginPath();
+                ctx.fillStyle = c;
+                ctx.arc(br,by,5,0,Math.PI*2,true);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+                br -= 10;
+            }
         }
 
     });
 
-    P.LineElement = LineElement;
     return LineElement;
 },
 {
-    requires : ["./element", "./util"]
+    requires : ["./util"]
 });

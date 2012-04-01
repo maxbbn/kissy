@@ -1,4 +1,4 @@
-KISSY.add("chart", function(S, Anim, Data, Axis, Frame, SimpleTooltip) {
+KISSY.add("chart/chart", function(S, Util, Data, Axis, Frame, SimpleTooltip, Element) {
     var Event = S.Event,
         Dom = S.DOM;
 
@@ -34,7 +34,7 @@ KISSY.add("chart", function(S, Anim, Data, Axis, Frame, SimpleTooltip) {
         self.ctx = -1;
 
         self.tooltip = Chart.getTooltip();
-        self._chartAnim = new Anim(0.3, "easeIn");
+        self._chartAnim = new Util.Anim(0.3, "easeIn");
         if(data){
             self.data = data;
             self._initContext();
@@ -413,14 +413,11 @@ KISSY.add("chart", function(S, Anim, Data, Axis, Frame, SimpleTooltip) {
     return Chart;
 }, {
     requires:[
-        './anim',
+        './util',
         './data',
         './axis',
         './frame',
         './simpletooltip',
-        './element',
-        './element-bar',
-        './element-line',
-        './element-pie'
+        './element'
     ]
 });

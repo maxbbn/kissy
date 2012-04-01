@@ -96,5 +96,5 @@ KISSY.add(function(S, PieElement, BarElement, LineElement){
     return Element;
 
 }, {
-    requires : ['./element_pie', './element_bar', './element_line'];
+    requires : ['./element_pie', './element_bar', './element_line']
 });
