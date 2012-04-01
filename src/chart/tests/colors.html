@@ -5,17 +5,18 @@
 <title></title>
 <link rel="stylesheet" href="../../../build/css/reset.css" />
 <script src="../../../build/kissy.js"></script>
-<script src="../src/color.js"></script>
-<script src="../src/data.js"></script>
 <script>
-    KISSY.config({
-        packages : {
-            chart : {
-                path : '../'
-            }
-        }
-    })
-</script>
+        KISSY.config({
+            packages : [
+                {
+                    name : 'chart',
+                    tag : '20111111',
+                    path : '../'
+                }
+            ]
+        });
+    </script>
+
 <style>
   html {
     background:#333;
@@ -53,10 +54,11 @@
     <h1>自动颜色生成</h1>
     <div id="c"></div>
     <script>
-        KISSY.use("chart/data",function(S,Data){
+        KISSY.use("chart/data",function (S, Data){
             var currentUl,color,colorLi,
                 Dom = S.DOM,
                 getdefaultcolor = Data.prototype.getDefaultColor;
+
             for(var i = 1; i< 50; i++){
                 var currentUl = Dom.create("<ul class=\"colors\"/>");
                 for(var j = 0; j < i; j++){
@@ -66,6 +68,7 @@
                 }
                 S.one("#c").append(currentUl);
             }
+            
         });
     </script>
 </body>
