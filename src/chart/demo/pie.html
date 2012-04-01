@@ -7,18 +7,29 @@
     <link rel="stylesheet" href="http://a.tbcdn.cn/s/kissy/1.1.6/cssreset/reset-min.css" />
     <link rel="stylesheet" href="../assets/chart.css" />
     <link rel="stylesheet" href="../assets/test.css" />
-
     <script src="../../../build/kissy.js"></script>
+    <script>
+        KISSY.config({
+            packages : [
+                {
+                    name : 'chart',
+                    tag : '20111111',
+                    path : '../'
+                }
+            ]
+        });
+    </script>
 </head>
 <body>
 <canvas style="background:#fff;" id="chart1" width="600" height="400"></canvas>
 <script>
-KISSY.use("chart", function(S,Chart){
+KISSY.use("chart/chart", function(S,Chart){
     var pie = Chart("#chart1",{
         type : "pie",
         element : {
-            datas : [5,1/3,1/2,1/6],
-            names : ["1212","AAA","BBB","CCC"]
+            datas : [5, 1/3, 1/2, 1/6],
+            names : ["1212","AAA","BBB","CCC"],
+            labels : ["83%", "5.5%", "8.3%%", "2.78%"]
         },
         config : {
             //colors : ["#aaa","#999","#666"],
@@ -34,7 +45,7 @@ KISSY.use("chart", function(S,Chart){
 </script>
 <canvas style="background:#ddd;" id="chart2" width="800" height="300"></canvas>
 <script>
-KISSY.use("chart", function(S,Chart){
+KISSY.use("chart/chart", function(S,Chart){
 
     var pie = Chart("#chart2",{
         type : "pie",
