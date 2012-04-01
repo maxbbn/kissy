@@ -190,31 +190,31 @@ KISSY.add(function(S, Util){
          */
         getDefaultColor : function (idx, length) {
             //在色相环上取色
-            var colorgap = 1/5,
-                colorStart = 15 /360,
-                colorScope = .50,
+            var colorgap = 1/3,
                 //h = Math.floor(idx/3)/length + 1/(idx%3 + 1)*colorgap,
-                h = 0, //h of color hsl
-                s = .88, // s of color hsl
-                b = .85,//b of  color hsb
-                l = b - s * .5, //l of color hsl
+                h = colorgap * idx, //h of color hsl
+                s = .7, // s of color hsl
+                b = 1,//b of  color hsb
+                l = b - s*.5, //l of color hsl
                 i, j, k;
-            h = colorStart + idx * colorScope / (length - 1)
-            // if (idx < 3) {
-            //     h = colorgap * idx + 0.01;
-            // } else {
-            //     //防止最后一个颜色落在第3区间
-            //     if (length % 3 == 0) {
-            //         if (idx === length -1) {
-            //             idx = length - 2;
-            //         } else if (idx === length - 2) {
-            //             idx = length - 1;
-            //         }
-            //     }
-            //     k = Math.ceil((idx + 1)/3);
 
-            //     h = (idx % 3)*colorgap + colorgap/(Math.ceil(length/3)) * (k-1);
-            // }
+            if(idx < 3){
+                h = colorgap * idx + 0.05;
+            }else{
+                //防止最后一个颜色落在第3区间
+                if(length % 3 == 0){
+                    if(idx === length -1){
+                        idx = length - 2;
+                    }else
+                    if(idx === length - 2){
+                        idx = length - 1;
+                    }
+                }
+                i = idx % 3;
+                j = Math.ceil(length/3);
+                k = Math.ceil((idx + 1)/3);
+                h = i*colorgap + colorgap/j * (k-1);
+            }
             return Util.Color.hsl(h,s,l).hexTriplet();
         },
 
