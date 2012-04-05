@@ -1,35 +1,10 @@
 ﻿/*
 Copyright 2012, KISSY UI Library v1.30dev
 MIT Licensed
-build time: Mar 6 10:14
+build time: Apr 5 12:56
 */
-KISSY.add("chart/anim",function(S){
-    var P = S.namespace("Chart"),
-        Easing = S.Easing;
-    function Anim(duration,easing){
-        this.duration = duration*1000;
-        this.fnEasing = S.isString(easing)?Easing[easing]:easing;
-    }
-    S.augment(Anim,{
-        init : function(){
-            this.start = new Date().getTime();
-            this.finish = this.start + this.duration;
-        },
-        get : function(){
-            var now = new Date().getTime(),k;
-            if(now > this.finish) {
-                return 1;
-            }
-            k = (now - this.start)/this.duration;
-            return this.fnEasing(k);
-        }
-    });
-    P.Anim = Anim;
-    return Anim;
-});
-KISSY.add("chart/axis", function(S) {
-    var P = KISSY.namespace("Chart"),
-        Event = S.Event,
+KISSY.add('chart/axis', function(S, Path) { 
+    var Event = S.Event,
         LINE = 'line',
         BAR = 'bar';
 
@@ -148,7 +123,7 @@ KISSY.add("chart/axis", function(S) {
                     bottom : bottom,
                     x : pathx
                 });
-                xd._area.push(new P.RectPath(pathleft, top, pathright - pathleft, bottom - top));
+                xd._area.push(new Path.RectPath(pathleft, top, pathright - pathleft, bottom - top));
             }
             //init Y Axis
             yd._lpath = {
@@ -171,8 +146,8 @@ KISSY.add("chart/axis", function(S) {
          */
         initEvent : function() {
             if (this.type === LINE) {
-                Event.on(this.chart, P.Chart.MOUSE_MOVE, this.chartMouseMove, this);
-                Event.on(this.chart, P.Chart.MOUSE_LEAVE, this.chartMouseLeave, this);
+                Event.on(this.chart, "mouse_move", this.chartMouseMove, this);
+                Event.on(this.chart, "mouse_leave", this.chartMouseLeave, this);
             }
         },
 
@@ -181,8 +156,8 @@ KISSY.add("chart/axis", function(S) {
          */
         destory : function() {
             if (this.type === ATYPE.LINE) {
-                Event.remove(this.chart, P.Chart.MOUSE_MOVE, this.chartMouseMove);
-                Event.remove(this.chart, P.Chart.MOUSE_LEAVE, this.chartMouseLeave);
+                Event.remove(this.chart, "mouse_move", this.chartMouseMove);
+                Event.remove(this.chart, "mouse_leave", this.chartMouseLeave);
             }
         },
         //事件回调函数
@@ -198,7 +173,7 @@ KISSY.add("chart/axis", function(S) {
                 }
             });
         },
-        //事件回调函数
+        
         chartMouseLeave : function(ev) {
             var self = this;
             self.current_x = -1;
@@ -343,98 +318,187 @@ KISSY.add("chart/axis", function(S) {
             ctx.restore();
         }
     });
-    P.Axis = Axis;
     return Axis;
+}, {
+    requires : ["chart/path"]
 });
-KISSY.add("chart", function(S) {
-    var Event = S.Event,
-        Dom = S.DOM;
-
-    //kissy < 1.2
-    var P = S.namespace("Chart");
-
-
+KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, Element) {
     /**
      * 图表默认配置
      */
     var defaultCfg = {
-        'left' : 40,
-        'top'  : 40
-    };
+            'left' : 40,
+            'top'  : 40
+        },
+
+        chartManger,
+
+        /**
+         * Event Mouse leave
+         */
+
+        MOUSE_LEAVE = "mouse_leave",
+
+        /**
+         * Event Mouse move
+         */
+        MOUSE_MOVE = "mouse_move";
+    /**
+     * 图表实例管理器，在这里，对图表间公用的资源进行管理
+     * @constructor
+     */
+    function ChartManager () {
+        var self = this;
+        self.list = [];
+        self.current_index = -1;
+        self.init();
+    }
+
+    S.augment(ChartManager, S.EventTarget, {
+        /**
+         * 添加图表实例
+         * @param {Chart} chart 新建的图表
+         */
+        add : function (chart) {
+            var self = this,
+                index;
+
+            self.list.push(chart);
+            index = self.list.length - 1;
+            chart
+                .on('active', function (ev) {
+                    if (self.current_index!== index) {
+                        self.fire('focusChange');
+                    }
+                    self.current_index = index;
+                });
+        }, 
+        /**
+         * 从管理器删除图表
+         * @param  {Chart} chart 要删除的图表
+         * @return {[type]}       [description]
+         */
+        remove : function (chart) {
+            chart.detach('mouseenter');
+
+            S.each(self.list, function (c, index) {
+                if (c === index) {
+                    self.list[index] = null;
+                }
+            });
+        },
+
+        /**
+         * 获取ToolTip 对象
+         * @return {SimpleTooltip} 所有图表共享一个Tooltip实例
+         */
+        getTooltip : function () {
+            if (!this.tooltip) {
+                this.tooltip = new SimpleTooltip();
+            }
+            return this.tooltip;
+        },
+
+
+        /**
+         * init the manager
+         * @return {ChartManager} 链式调用
+         */
+        init : function () {
+            var self = this;
+            S.one('body')
+                .on('mousemove', self._bodyMouseMove, self);
+            return self;
+        },
+
+        /**
+         * 鼠标move时间处理
+         * @param  {Event} ev 事件对象
+         */
+        _bodyMouseMove : function (ev) {
+            var self = this,
+                chart,
+                ox,
+                oy;
+
+            if (self.current_index > -1) {
+                chart = self.list[self.current_index];
+            }
+
+            if (!chart) {
+                return
+            }
+            
+            ox = ev.pageX - chart.offset.left;
+            oy = ev.pageY - chart.offset.top;
+
+            if (ox > 0 && ox < chart.width && oy > 0 && oy < chart.height) {
+                chart.fire(MOUSE_MOVE, 
+                    { 
+                        x:ox,
+                        y:oy
+                    }
+                );
+            } else {
+                chart.fire(MOUSE_LEAVE);
+            }
+        }
+     });
+
+    
 
     /**
      * class Chart
      * @constructor
-     * @param {String|Object} canvas HTMLElement
+     * @param {String|Object} canvas HTML   Element
      * @param {String|Object} data of canvas
      */
     function Chart(canvas, data) {
         if (!(this instanceof Chart)) return new Chart(canvas, data);
-
-        var elCanvas = this.elCanvas = Dom.get(canvas)
-
-        if(!elCanvas) return;
-
         var self = this,
-            width = elCanvas.width,
-            height = elCanvas.height;
+            elCanvas = this.elCanvas = S.one(canvas);
 
+        if (!elCanvas) return;
+
+        
+        self.width = parseInt(elCanvas.attr('width'), 10),
+        self.height = parseInt(elCanvas.attr('height'), 10);
         self.elCanvas = elCanvas;
-        self.width = width;
-        self.height = height;
         self.ctx = -1;
+        self.tooltip = chartManager.getTooltip();
 
-        self.tooltip = Chart.getTooltip();
-        self._chartAnim = new P.Anim(0.3, "easeIn");
-        if(data){
+        if (data) {
             self.data = data;
             self._initContext();
         }
 
+        chartManager.add(this);
     }
 
-    /**
-     * 获取ToolTip 对象， 所有图表共享一个Tooltip
-     */
-    Chart.getTooltip = function() {
-        if (!Chart.tooltip) {
-            Chart.tooltip = new P.SimpleTooltip();
-        }
-        return Chart.tooltip;
-    };
-    /**
-     * Event Mouse leave
-     */
-    Chart.MOUSE_LEAVE = "mouse_leave";
-
-    /**
-     * Event Mouse move
-     */
-    Chart.MOUSE_MOVE= "mouse_move";
-
-    S.augment(Chart,
-        S.EventTarget, /**@lends Chart.prototype*/{
+    S.extend(Chart, S.Base, /**@lends Chart.prototype*/ {
 
         /**
          * render form
          * @param {Object} the chart data
          */
-        render : function(data) {
+        render : function (data) {
             var self = this;
 
             // ensure we have got context here
-            if(self.ctx == -1){
+            if (self.ctx == -1) {
                 self.data = data;
                 self._initContext();
                 return;
             }
+
             //wait... context to init
-            if(self.ctx === 0){
+            if (self.ctx === 0) {
                 self.data = data;
                 return;
             }
-            self._data = new P.Data(data);
-            if(!self._data) return;
+
+            self._data = new Data(data);
+            if (!self._data) return;
             data = self._data;
 
             self.initChart();
@@ -448,16 +512,16 @@ KISSY.add("chart", function(S) {
             if (data.type === "bar" || data.type === "line") {
 
                 //generate the max of Y axis
-                self._drawcfg.max = data.axis().y.max || P.Axis.getMax(data.max(), self._drawcfg);
+                self._drawcfg.max = data.axis().y.max || Axis.getMax(data.max(), self._drawcfg);
 
-                self.axis = new P.Axis(data, self, self._drawcfg);
-                self._frame = new P.Frame(self._data, self._drawcfg);
+                self.axis = new Axis(data, self, self._drawcfg);
+                self._frame = new Frame(self._data, self._drawcfg);
                 self.layers.push(self.axis);
                 self.layers.push(self._frame);
 
             }
 
-            self.element = P.Element.getElement(self._data, self, self._drawcfg);
+            self.element = Element.getElement(self._data, self, self._drawcfg);
 
             self.layers.push(self.element);
 
@@ -466,15 +530,15 @@ KISSY.add("chart", function(S) {
             // 设置背景
             var gra = self.ctx.createLinearGradient(0,0,0,self.height);
             self.backgroundFillStyle = null;
-            if(config.backgroundStyle && typeof config.backgroundStyle === "object"){
+            if (config.backgroundStyle && typeof config.backgroundStyle === "object") {
                 gra.addColorStop(0, config.backgroundStyle.start);
                 gra.addColorStop(1, config.backgroundStyle.end);
                 self.backgroundFillStyle = gra;
-            }else if(S.isString(config.backgroundStyle)){
+            }else if (S.isString(config.backgroundStyle)) {
                 self.backgroundFillStyle = config.backgroundStyle;
             }
 
-            setTimeout(function() {
+            setTimeout(function () {
                 self._redraw();
                 self.initEvent();
             }, 100);
@@ -483,28 +547,29 @@ KISSY.add("chart", function(S) {
          * init Canvas Context
          * @private
          */
-        _initContext : function(){
+        _initContext : function () {
             var self = this;
-            if(typeof self.ctx == 'object') return;
-
-            if(self.elCanvas.getContext){
+            if (typeof self.ctx == 'object') return;
+ 
+            if (self.elCanvas[0].getContext) {
                 //flashcanvas初始化需要时间
-                setTimeout(function(){
-                    self.ctx = self.elCanvas.getContext('2d');
+                setTimeout(function () {
+                    self.ctx = self.elCanvas[0].getContext('2d');
                     self._contextReady();
-                }, 150);
-            }else{
-                //this is for gaving flashCanvas has the time to init canvas
+                }, 0);
+
+            } else {
+                // wait for  flashCanvas to init canvas
                 self.ctx = 0;
-                self._count = (typeof self._count == "number") ? self._count-1 : 30;
-                if(self._count >= 0){
-                    setTimeout(function ctx(){
+                self._count = (typeof self._count == "number") ? self._count - 1 : 30;
+                if (self._count >= 0) {
+                    setTimeout(function ctx() {
                         self._initContext();
-                    },150)
-                }else{
+                    }, 50);
+                } else {
                     //糟了，你的浏览器还不支持我们的图表
-                    var text = Dom.create("<p class='ks-chart-error' > \u7cdf\u4e86\uff0c\u4f60\u7684\u6d4f\u89c8\u5668\u8fd8\u4e0d\u652f\u6301\u6211\u4eec\u7684\u56fe\u8868</p>");
-                    Dom.insertAfter(text,self.elCanvas)
+                    var text = S.one("<p class='ks-chart-error' > \u7cdf\u4e86\uff0c\u4f60\u7684\u6d4f\u89c8\u5668\u8fd8\u4e0d\u652f\u6301\u6211\u4eec\u7684\u56fe\u8868</p>");
+                    text.insertAfter(self.elCanvas);
                 }
             }
         },
@@ -513,9 +578,9 @@ KISSY.add("chart", function(S) {
          * execute when the ctx is ready
          * @private
          */
-        _contextReady : function(){
+        _contextReady : function () {
             var self = this;
-            if(self.data){
+            if (self.data) {
                 self.render(self.data);
            }
         },
@@ -523,14 +588,14 @@ KISSY.add("chart", function(S) {
         /**
          * show the loading text
          */
-        loading : function() {
+        loading : function () {
             this.showMessage("\u8F7D\u5165\u4E2D...");
         },
 
         /**
          * show text
          */
-        showMessage : function(m) {
+        showMessage : function (m) {
             var ctx = this.ctx,
                 tx = this.width / 2,
                 ty = this.height / 2;
@@ -548,98 +613,100 @@ KISSY.add("chart", function(S) {
          * this will remove all the event
          * @private
          */
-        initChart : function() {
+        initChart : function () {
             var self = this;
-            self._chartAnim.init();
             self.layers = [];
             self._updateOffset();
             self.loading();
 
-            S.each([self.element,self.axis], function(item) {
+            S.each([self.element,self.axis], function (item) {
                 if (item) {
                     item.destory();
-                    Event.remove(item);
+                    item.detach();
                 }
             });
 
             self.element = null;
             self.axis = null;
             if (self._event_inited) {
-                Event.remove(self.elCanvas, "mousemove", self._mousemoveHandle);
-                Event.remove(self.elCanvas, "mouseenter", self._mouseenterHandle);
-                Event.remove(self.elCanvas, "mouseleave", self._mouseLeaveHandle);
-                Event.remove(self, Chart.MOUSE_LEAVE, self._drawAreaLeave);
+                self.elCanvas
+                    // .detach("mousemove", self._mousemoveHandle)
+                    .detach("mouseenter", self._mouseenterHandle)
+                    .detach("mouseleave", self._mouseLeaveHandle)
+                
+
+                self.detach();
             }
+
             self.tooltip.hide();
         },
 
-        initEvent : function() {
+
+
+        initEvent : function () {
             var self = this;
 
             self._event_inited = true;
 
-            Event.on(self.elCanvas, "mousemove", self._mousemoveHandle, self);
-            Event.on(self.elCanvas, "mouseenter", self._mouseenterHandle,self);
-            Event.on(self.elCanvas, "mouseleave", self._mouseLeaveHandle, self);
-            Event.on(self, Chart.MOUSE_LEAVE, self._drawAreaLeave, self);
+            self.elCanvas
+                // .on("mousemove", self._mousemoveHandle, self)
+                .on("mouseenter", self._mouseenterHandle, self)
+                .on("mouseleave", self._mouseLeaveHandle, self);
 
-            if (self.type === "bar") {
-                Event.on(self.element, "barhover", self._barHover, self);
-            }
+            self.on(MOUSE_LEAVE, self._drawAreaLeave, self);
 
             if (self.axis) {
-                Event.on(self.axis, "xaxishover", self._xAxisHover, self);
-                Event.on(self.axis, "leave", self._xAxisLeave, self);
-                Event.on(self.axis, "redraw", self._redraw, self);
+                self.axis
+                    .on("xaxishover", self._xAxisHover, self)
+                    .on("leave", self._xAxisLeave, self)
+                    .on("redraw", self._redraw, self);
             }
 
-            Event.on(self.element, "redraw", self._redraw, self);
+            self.element
+                .on("redraw", self._redraw, self)
+                .on("showtooltip", function (ev) {
+                    var msg = S.isString(ev.message) ? ev.message : ev.message.innerHTML;
+                    self.tooltip.show(msg);
+                })
+                .on("hidetooltip", function (ev) {
+                    self.tooltip.hide();
+                });
 
-            Event.on(self.element, "showtooltip", function(e) {
-                var msg = S.isString(e.message)?e.message:e.message.innerHTML;
-                self.tooltip.show(msg);
-            });
-
-            Event.on(self.element, "hidetooltip", function(e) {
-                self.tooltip.hide();
-            });
         },
 
         /**
          * draw all layers
          * @private
          */
-        draw : function() {
+        draw : function () {
             var self = this,
                 ctx = self.ctx,
-                k = self._chartAnim.get(),
                 size = self._drawcfg;
 
-            ctx.save();
-            ctx.globalAlpha = k;
-            if(self.backgroundFillStyle){
+            //ctx.save();
+            //ctx.globalAlpha = k;
+            if (self.backgroundFillStyle) {
                 ctx.fillStyle = self.backgroundFillStyle;
-                ctx.fillRect(0,0,size.width,size.height);
+                ctx.fillRect(0, 0, size.width, size.height);
             }else{
-                ctx.clearRect(0,0,size.width,size.height);
+                ctx.clearRect(0, 0, size.width, size.height);
             }
-            S.each(self.layers, function(e, i) {
+
+            S.each(self.layers, function (e, i) {
                 e.draw(ctx, size);
             });
-            ctx.restore();
-
-            if (k < 1) {
-                this._redraw();
-            }
+            //ctx.restore();
         },
+
         /**
          * Get The Draw Context of Canvas
+         * @return {CanvasContext} the context Object 
          */
-        ctx : function(){
-            if(this.ctx) {
+        ctx : function () {
+            if (this.ctx) {
                 return this.ctx;
             }
-            if(this.elCanvas.getContext){
+            if (this.elCanvas[0].getContext) {
                 this.ctx = this.elCanvas.getContext('2d');
                 return this.ctx;
             }else{
@@ -650,7 +717,7 @@ KISSY.add("chart", function(S) {
          * redraw the layers
          * @private
          */
-        _redraw : function() {
+        _redraw : function () {
             this._redrawmark = true;
             if (!this._running) {
                 this._run();
@@ -660,7 +727,7 @@ KISSY.add("chart", function(S) {
          * run the Timer
          * @private
          */
-        _run : function() {
+        _run : function () {
             var self = this;
             clearTimeout(self._timeoutid);
             self._running = true;
@@ -674,17 +741,12 @@ KISSY.add("chart", function(S) {
                 }
             }, 1000 / 24);
         },
+        
         /**
          * event handler
          * @private
          */
-        _barHover : function(ev) {
-        },
-        /**
-         * event handler
-         * @private
-         */
-        _xAxisLeave : function(ev) {
+        _xAxisLeave : function (ev) {
             //this._redraw();
             this.fire("axisleave");
         },
@@ -692,7 +754,7 @@ KISSY.add("chart", function(S) {
          * event handler
          * @private
          */
-        _xAxisHover : function(ev) {
+        _xAxisHover : function (ev) {
             this.fire("axishover", {
                 index : ev.index,
                 x : ev.x
@@ -703,31 +765,18 @@ KISSY.add("chart", function(S) {
          * event handler
          * @private
          */
-        _drawAreaLeave : function(ev) {
+        _drawAreaLeave : function (ev) {
             this.tooltip.hide();
         },
-        /**
-         * event handler
-         * @private
-         */
-        _mousemoveHandle : function(e) {
-            var ox = e.pageX - this.offset.left,
-                oy = e.pageY - this.offset.top;
-
-
-            if(this._frame && this._frame.path && this._frame.path.inpath(ox,oy) || !this._frame){
-                this.fire(Chart.MOUSE_MOVE, {x:ox,y:oy});
-            }else{
-                this.fire(Chart.MOUSE_LEAVE);
-            }
-        },
-
         /**
          * event handle
          * @private
          */
-        _mouseenterHandle : function(e){
+        _mouseenterHandle : function (e) {
+            var self = this;
             this._updateOffset();
+            self.fire('active')
+            
         },
 
         /**
@@ -735,58 +784,1445 @@ KISSY.add("chart", function(S) {
          * @private
          * @return {Object} offset of canvas element
          */
-        _updateOffset : function(){
-            this.offset = Dom.offset(this.elCanvas);
+        _updateOffset : function () {
+            this.offset = this.elCanvas.offset();
             return this.offset;
         },
         /**
          * event handler
          * @private
          */
-        _mouseLeaveHandle : function(ev) {
+        _mouseLeaveHandle : function (ev) {
             var self = this,
                 tooltip = self.tooltip;
 
-            var rel = ev.relatedTarget;
+            self.fire(MOUSE_LEAVE);
 
-            if(rel && (rel === tooltip.n_c[0] || tooltip.n_c.contains(rel))){
-                return;
-            }
-            this.fire(Chart.MOUSE_LEAVE);
         }
     });
 
     /*export*/
-    P.Chart = Chart;
+    chartManager = window.chartManager = new ChartManager();
+    S.Chart = Chart;
     return Chart;
+
 }, {
     requires:[
-        'chart/anim',
+        'chart/util',
+        'chart/data',
         'chart/axis',
-        'chart/simpletooltip',
         'chart/frame',
-        'chart/element',
-        'chart/element-bar',
-        'chart/element-line',
-        'chart/element-pie',
-        'chart/data'
+        'chart/simpletooltip',
+        'chart/element'
     ]
 });
-/*
- * color.js
- * Version 0.2.1.2
- *
- * 2009-09-12
- * 
- * By Eli Grey, http://eligrey.com
- * Licensed under the X11/MIT License
- *   See LICENSE.md
- */
+KISSY.add('chart/data', function(S, Util){
+    /**
+     * 图表默认配置
+     */
+    var defaultConfig= {
+        //上边距
+        paddingTop: 30,
+        //左边距
+        paddingLeft : 20,
+        //右边距
+        paddingRight : 20,
+        //底边距
+        paddingBottom : 20,
+        //是否显示标签
+        showLabels : true,
 
-/*jslint undef: true, nomen: true, eqeqeq: true, regexp: true, strict: true, newcap: true, immed: true */
+        colors : [],
+        //动画间隔
+        animationDuration : .5,
+        //动画Easing函数
+        animationEasing : "easeInStrong",
+        //背景色 或 背景渐变
+        /*
+        {
+            start : "#222",
+            end : "#666"
+        }
+        */
+        backgroundStyle : false,
+        //坐标字体颜色
+        axisTextColor : "#999",
+        //坐标间隔背景颜色
+        axisBackgroundColor : "#EEE",
+        //坐标线框颜色
+        axisGridColor : "#e4e4e4",
+        //Number Format
+        //针对特定数据设置numberFormat可以用
+        //numberFormats : ['0.00','0.000']
+        //null 表示不做format处理
+        //默认为 null
+        numberFormat : null,
+        //边框颜色
+        frameColor : "#d7d7d7"
+    };
+
+    /**
+     * 特定图标配置
+     */
+    var specificConfig = {
+        'line' : {
+            //是否在折线下绘制渐变背景
+            //值为要绘制背景的折线index
+            drawbg : -1
+        },
+        'bar' : { },
+        'pie' : {
+            //pie 默认动画时间
+            animationDuration : 1.8,
+            //pie 的默认动画效果
+            animationEasing : "bounceOut",
+            paddingTop : 10,
+            paddingBottom : 10,
+            paddingLeft : 10,
+            paddingRight : 10,
+            drawShadow : true,
+            shadow : {
+                blur : 3,
+                color : '#000'
+            },
+            labelTemplate : "{name} {pecent}%", //{name} {data} {pecent}
+            firstPieOut : false // 第一块飞出
+        }
+    };
+
+
+    /**
+     * 图表数据
+     * 处理图表输入数据
+     * @constructor
+     * @param {Object} 输入的图表JSON数据
+     */
+    function Data(data) {
+        if (!data || !data.type) return;
+        if (!this instanceof Data)
+            return new Data(data);
+        var self = this,
+            cfg = data.config;
+
+        self.origin = data;
+        data = S.clone(data);
+        self.type = data.type.toLowerCase();
+        //self._design = data.design;
+
+        self.config = cfg = S.merge(defaultConfig, specificConfig[self.type], cfg);
+        /**
+         * 配置兼容
+         */
+        S.each({
+            'left'  : 'paddingLeft',
+            'top'   : 'paddingTop',
+            'bottom': 'paddingBottom',
+            'right' : 'paddingRight'
+        }, function (item, key) {
+            if (key in cfg && S.isNumber(cfg[key])) {
+                cfg[item] = cfg[key];
+            }
+        });
+
+        self._elements = self._expandElement(self._initElement(data));
+        self._initElementItem();
+        self._axis = data.axis;
+    }
+
+    S.augment(Data, /**@lends Data.protoptype*/{
+        /**
+         * get the AxisData
+         */
+        axis : function () {
+            return this._axis;
+        },
+
+        /**
+         * get the Element Data
+         */
+        elements : function () {
+            return this._elements;
+        },
+
+        /**
+         * get the the max length of each Element
+         */
+        maxElementLength: function () {
+            var ml = 0;
+            S.each(this._elements, function (elem,idx) {
+                if (S.isArray(elem.items)) {
+                    ml = Math.max(ml, elem.items.length);
+                } else {
+                    ml = Math.max(ml,1)
+                }
+            });
+            return ml;
+        },
+
+
+        /**
+         * Get the color for the Element
+         * from the user config or the default
+         * color
+         * @param {Number} the index of the element
+         * @param {String} type of Chart
+         */
+        getColor : function (idx,type) {
+            var length = this._elements.length;
+            var usercolor = this.config.colors
+            if (S.isArray(usercolor) && usercolor[idx]) {
+                return usercolor[idx];
+            }
+
+            //getColor frome user defined function
+            if (S.isFunction (usercolor)) {
+                return usercolor(idx);
+            }
+
+            //get color from default Color getter
+            return this.getDefaultColor(idx,length,type);
+        },
+
+        /**
+         * return the sum of all Data
+         */
+        sum: function () {
+            var d = 0;
+            this.eachElement(function (item) {
+                d += item.data;
+            });
+            return d;
+        },
+
+        /**
+         * Get the Biggest Data from element
+         */
+        max : function () {
+            return this._max;
+        },
+
+        /**
+         * get the default color depending on idx and length, and types of chart 
+         * @param {Number} index of element
+         * @param {Number} length of element
+         */
+        getDefaultColor : function (idx, length) {
+            //在色相环上取色
+            var colorgap = 1/3,
+                //h = Math.floor(idx/3)/length + 1/(idx%3 + 1)*colorgap,
+                h = colorgap * idx, //h of color hsl
+                s = .7, // s of color hsl
+                b = 1,//b of  color hsb
+                l = b - s*.5, //l of color hsl
+                i, j, k;
+
+            if(idx < 3){
+                h = colorgap * idx + 0.05;
+            }else{
+                //防止最后一个颜色落在第3区间
+                if(length % 3 == 0){
+                    if(idx === length -1){
+                        idx = length - 2;
+                    }else
+                    if(idx === length - 2){
+                        idx = length - 1;
+                    }
+                }
+                i = idx % 3;
+                j = Math.ceil(length/3);
+                k = Math.ceil((idx + 1)/3);
+                h = i*colorgap + colorgap/j * (k-1);
+            }
+            return Util.Color.hsl(h,s,l).hexTriplet();
+        },
+
+
+        /**
+         * execuse fn on each Element item
+         */
+        eachElement : function (fn) {
+            var self = this;
+
+            S.each(self._elements, function (item,idx) {
+                if (item.items) {
+                    S.each(item.items, function (i, idx2) {
+                        fn(i,idx,idx2);
+                    });
+                } else {
+                    fn(item, idx, -1);
+                }
+            });
+        },
+
+
+        /**
+         * normalize Input Element
+         * @private
+         * @param {Object} input data
+         */
+        _initElement : function (data) {
+            var elements = null,
+                elem,
+                self = this,
+                newelem;
+
+            //数组形式
+            if (data.elements && S.isArray(data.elements)) {
+                elements = S.clone(data.elements);
+            }
+
+            //对象形式
+            if (!data.elements && data.element && S.isArray(data.element.names)) {
+                elements = [];
+                elem = data.element;
+                S.each(elem.names, function　(name,　idx) {
+                    elements.push({
+                        name   : name,
+                        data   : S.isArray(elem.datas) ? elem.datas[idx] : null,
+                        label  : S.isArray(elem.labels) ? elem.labels[idx] : elem.label
+                    });
+                });
+            }
+
+            return elements;
+        },
+        /**
+         * expand the sub element
+         * @param {Object} the Element Object
+         * @private
+         */
+        _expandElement : function (data) {
+            var datas,
+                self = this;
+            S.each(data, function (element, idx) {
+
+                if (S.isArray(element.datas)) {
+
+                    element.items = [];
+
+                    S.each(element.datas, function (d, index) {
+                        var itemdata = {
+                            name : element.name,
+                            data : d
+                        };
+
+
+                        itemdata.label = S.isArray(element.labels) ? 
+                            element.labels[index] : element.label;
+
+                        element.items.push(itemdata);
+                    });
+                }
+
+            });
+            return data;
+        },
+
+
+        /**
+         * Init the Element Item
+         * parse the label
+         */
+        _initElementItem: function () {
+            var self = this;
+
+            self._max = 0;
+
+            self.eachElement(function (elem,idx,idx2) {
+                var label;
+
+                //统计最大值
+                if (idx === 0 && (!idx2)) self._max = elem.data || 0;
+                elem.data = S.isNumber(elem.data) ? elem.data : 0 ;
+                self._max = Math.max(self._max, elem.data);
+
+                
+
+                //数字的格式
+                if (S.isArray(self.config.numberFormat) ) {
+                    elem.format = self.config.numberFormat[idx];
+                } else if (S.isString(self.config.numberFormat)) {
+                    elem.format = self.config.numberFormat;
+                }
+
+                if (typeof elem.format == 'undefined' ) {
+                    elem.format = self.config.numberFormat;
+                }
+
+                label = (typeof elem.label === 'undefined') ? null : elem.label;
+
+                elem.label = S.substitute(
+                    label, {
+                        name : elem.name,
+                        data : elem.format ? Util.numberFormat(elem.data, elem.format) : elem.data
+                    }
+                );
+
+            });
+        }
+    });
+
+    return Data;
+
+}, {
+    requires : ["chart/util"]
+});KISSY.add('chart/element', function(S, PieElement, BarElement, LineElement){
+
+    /*
+     * 图表类型基础类
+     */
+    function Element (data, chart, drawcfg){};
+
+    S.mix(Element, {
+        getElement : function(data,chart,cfg){
+            var E;
+            switch(data.type){
+                case "line":
+                    E = LineElement;
+                    break;
+                case "pie":
+                    E = PieElement;
+                    break;
+                case "bar":
+                    E = BarElement;
+                    break;
+            }
+            return new E(data,chart,cfg);
+        },
+
+        getMax : function(data){
+            var max = data[0].data[0],
+                elementidx, elementl = data.length,
+                dataidx, datal;
+
+            for(elementidx = 0; elementidx < elementl; elementidx ++){
+                element = data[elementidx];
+                for(dataidx = 0, datal = element.data.length; dataidx < datal; dataidx++){
+                    max = Math.max(max, element.data[dataidx] || 0);
+                }
+            }
+            return max;
+        }
+    });
+
+    S.augment(Element, S.EventTarget, {
+        drawNames : function(ctx){
+            var self = this,
+                cfg = self.drawcfg,
+                data = self.data.elements(),
+                l = data.length,
+                i = l - 1,
+                br = cfg.width - cfg.paddingRight,
+                by = cfg.paddingTop - 12,
+                d,
+                c;
+
+            for(; i>=0; i--){
+                d = data[i];
+                if(d.notdraw){
+                    continue;
+                }
+                c = self.data.getColor(i);
+                //draw text
+                ctx.save();
+                ctx.textAlign = "end";
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = "#808080";
+                ctx.font = "12px Arial";
+                ctx.fillText(d.name, br, by);
+                br -= ctx.measureText(d.name).width + 10;
+                ctx.restore();
+                //draw color dot
+                ctx.save();
+                ctx.beginPath();
+                ctx.fillStyle = c;
+                ctx.arc(br,by,5,0,Math.PI*2,true);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+                br -= 10;
+            }
+        },
+        /*
+         *　初始化数据和配置，只在开始时渲染一次  
+         */
+        init : function(){},
+        /*
+         * 解除事件绑定  
+         */
+        destory : function(){},
+        /*
+         * 绘图  
+         */
+        draw : function(ctx,cfg){}
+    });
+
+    return Element;
+
+}, {
+    requires : ['chart/element_pie', 'chart/element_bar', 'chart/element_line']
+});
+KISSY.add('chart/element_bar', function (S, Util, Path) {
+    var MOUSE_LEAVE = "mouse_leave",
+        MOUSE_MOVE = "mouse_move";
+
+    function darker(c) {
+        var hsl = c.hslData(),
+            l = hsl[2],
+            s = hsl[1],
+            b  = (l + s/2) * 0.6,
+        l = b - s/2;
+        return new Util.Color.hsl(hsl[0],s,l);
+    }
+
+    /**
+     * class BarElement for Bar Chart
+     */
+    function BarElement(data, chart, drawcfg) {
+        var self = this;
+        self.data = data;
+        self.chart = chart;
+        self.drawcfg = drawcfg;
+        self.config = data.config;
+
+        self.initData(drawcfg);
+        self.initEvent();
+
+        self.current = [-1,-1];
+        self.anim = new Util.Anim(self.config.animationDuration,self.config.animationEasing)//,1,"bounceOut");
+        self.anim.init();
+    }
+
+    S.augment(BarElement, S.EventTarget, {
+
+        initData : function (cfg) {
+            var self      = this,
+                data      = self.data,
+                elemLength= data.elements().length,
+                maxlength = data.maxElementLength(),
+                right = cfg.width - cfg.paddingRight,
+                left = cfg.paddingLeft,
+                bottom = cfg.height - cfg.paddingBottom,
+                itemwidth = (right - left)/maxlength,
+                gap = itemwidth/5/elemLength,//gap between bars
+                padding = itemwidth/3/elemLength,
+                barwidth = (itemwidth - (elemLength - 1) * gap - 2*padding)/elemLength,
+                barheight,barleft,bartop,color,
+                items = [];
+            self.maxLength = maxlength;
+
+            self.items = items;
+            self.data.eachElement(function (elem,idx,idx2) {
+                if (idx2 === -1) idx2 = 0;
+
+                if (!items[idx]) {
+                    items[idx] = {
+                        _x : [],
+                        _top  :  [],
+                        _left  :  [],
+                        _path  :  [],
+                        _width  :  [],
+                        _height  :  [],
+                        _colors : [],
+                        _dcolors : [],
+                        _labels : []
+                    }
+                }
+
+                var element = items[idx];
+
+                barheight = (bottom - cfg.top) * elem.data / cfg.max;
+                barleft = left + idx2 * itemwidth + padding + idx * (barwidth + gap);
+                bartop = bottom - barheight;
+
+                color = Util.Color(self.data.getColor(idx,"bar"));
+                colord = darker(color);
+
+                element._left[idx2] = barleft;
+                element._top[idx2] = bartop;
+                element._width[idx2] = barwidth;
+                element._height[idx2] = barheight;
+                element._path[idx2] = new Path.RectPath(barleft,bartop,barwidth,barheight);
+                element._x[idx2] = barleft+barwidth/2;
+                element._colors[idx2] = color;
+                element._dcolors[idx2] = colord;
+                element._labels[idx2] = elem.label;
+            });
+
+        },
+
+        /**
+         * draw the barElement
+         * @param {Object} Canvas Object
+         */
+        draw : function (ctx) {
+            var self = this,
+                data = self.items,
+                ml = self.maxLength,
+                color,gradiet,colord,chsl,
+                barheight,cheight,barleft,bartop,
+                //for anim
+                k = self.anim.get(),
+                i;
+
+            if (self.data.config.showLabels) {
+                self.drawNames(ctx);
+            }
+
+            S.each(data, function (bar, idx) {
+                for(i = 0; i< ml; i++) {
+                    barleft = bar._left[i];
+                    barheight = bar._height[i];
+                    cheight = barheight * k;
+                    bartop = bar._top[i] + barheight - cheight;
+                    barwidth = bar._width[i];
+                    color =    bar._colors[i];
+                    dcolor =    bar._dcolors[i];
+
+                    //draw backgraound
+                    gradiet = ctx.createLinearGradient(barleft,bartop,barleft,bartop + cheight);
+                    gradiet.addColorStop(0,color.css());
+                    gradiet.addColorStop(1,dcolor.css());
+
+                    ctx.fillStyle = gradiet;
+                    //ctx.fillStyle = color;
+                    ctx.fillRect(barleft,bartop,barwidth,cheight);
+                    //draw label on the bar
+                    if (ml === 1 && barheight > 25) {
+                        ctx.save();
+                        ctx.fillStyle = "#fff";
+                        ctx.font = "20px bold Arial";
+                        ctx.textBaseline = "top";
+                        ctx.textAlign = "center";
+                        data = self.data.elements()[idx];
+                        ctx.fillText(Util.numberFormat(data.data, data.format), bar._x[i], bartop + 2);
+                        ctx.restore();
+                    }
+                }
+
+            });
+
+            if (k < 1) {
+                self.fire("redraw");
+            }
+        },
+
+        initEvent : function () {
+            this.chart.on(MOUSE_MOVE,this.chartMouseMove,this);
+            this.chart.on(MOUSE_LEAVE,this.chartMouseLeave,this);
+        },
+
+        destory : function () {
+            this.chart.detach(MOUSE_MOVE,this.chartMouseMove);
+            this.chart.detach(MOUSE_LEAVE,this.chartMouseLeave);
+        },
+
+        chartMouseMove : function (ev) {
+            var self = this,
+                current = [-1,-1],
+                items = self.items;
+
+            S.each(self.items, function (bar,idx) {
+                S.each(bar._path, function (path,index) {
+                    if (path.inpath(ev.x,ev.y)) {
+                        current = [idx,index];
+                    }
+                });
+            });
+
+            if ( current[0] === self.current[0] && current[1] === self.current[1]) {
+                return;
+            }
+
+            self.current = current;
+
+            if (current[0] + current[1] >= 0) {
+                self.fire("barhover",{index:current});
+                self.fire("showtooltip",{
+                    top : items[current[0]]._top[current[1]],
+                    left : items[current[0]]._x[current[1]],
+                    message : self.getTooltip(current)
+                });
+            }else{
+                self.fire("hidetooltip");
+            }
+        },
+
+        chartMouseLeave : function () {
+            this.current = [-1,-1];
+        },
+        /**
+         * get tip HTML by id
+         * @return {String}
+         **/
+        getTooltip : function (index) {
+            var self = this,
+                eidx = index[0],
+                didx = index[1],
+                item = self.items[eidx],
+                msg = "<div class='bartip'>"+
+                    "<span style='color:"+item._colors[didx].css()+";'>"+
+                    item._labels[didx]+"</span></div>";
+            return msg;
+        },
+        
+        drawNames : function (ctx) {
+            var self = this,
+                cfg = self.drawcfg,
+                data = self.data.elements(),
+                l = data.length,
+                i = l - 1,
+                br = cfg.width - cfg.paddingRight,
+                by = cfg.paddingTop - 12,
+                d,
+                c;
+
+            for(; i>=0; i--) {
+                d = data[i];
+                if (d.notdraw) {
+                    continue;
+                }
+                c = self.data.getColor(i);
+                //draw text
+                ctx.save();
+                ctx.textAlign = "end";
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = "#808080";
+                ctx.font = "12px Arial";
+                ctx.fillText(d.name, br, by);
+                br -= ctx.measureText(d.name).width + 10;
+                ctx.restore();
+                //draw color dot
+                ctx.save();
+                ctx.beginPath();
+                ctx.fillStyle = c;
+                ctx.arc(br,by,5,0,Math.PI*2,true);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+                br -= 10;
+            }
+        }
+    });
+
+    return BarElement;
+},{
+    requires : ["chart/util", "chart/path"]
+});
+KISSY.add('chart/element_line', function(S, Util) {
+    /**
+     * class Element for Line chart
+     */
+    function LineElement(data,chart,drawcfg) {
+        var self = this;
+        self.chart = chart;
+        self.data = data;
+        self.elements = data.elements();
+        self._current = -1;
+        self.config = data.config;
+        self.drawcfg = drawcfg;
+        self.initdata(drawcfg);
+        self._ready_idx = -1;
+        self.init();
+
+        self.anim = new Util.Anim(self.config.animationDuration,self.config.animationEasing);
+        self.anim.init();
+    }
+
+    S.augment(LineElement, S.EventTarget, {
+        /**
+         * 根据数据源，生成图形数据
+         */
+        initdata : function(cfg) {
+            var self = this,
+                data = self.data,
+                elements = self.elements,
+                ml = data.maxElementLength(),
+                left = cfg.paddingLeft,
+                bottom = cfg.height - cfg.paddingBottom,
+                height = bottom - cfg.paddingTop,
+                width = cfg.width - cfg.paddingRight - left,
+                gap = width/(ml-1),
+                maxtop, i,j;
+            var items = [];
+            self.items = items;
+
+            data.eachElement(function(elem,idx,idx2) {
+                if(!items[idx]) {
+                    items[idx] = {
+                        _points : [],
+                        _labels : [],
+                        _color : data.getColor(idx),
+                        _maxtop : bottom,
+                        _drawbg : idx === data.config.drawbg
+                    };
+                }
+                var element = items[idx];
+                ptop = Math.max(bottom - elem.data/ cfg.max * height , cfg.paddingTop - 5);
+                element._maxtop = Math.min(element._maxtop, ptop);
+                element._labels[idx2] = elem.label;
+                element._points[idx2] = {
+                    x : left + gap*idx2,
+                    y : ptop,
+                    bottom : bottom
+                };
+
+            });
+
+        },
+
+        draw : function(ctx,cfg) {
+            var self = this,
+                data = self.data,
+                left = cfg.paddingLeft,
+                right = cfg.width - cfg.paddingRight,
+                top = cfg.paddingTop,
+                bottom = cfg.height - cfg.paddingBottom,
+                height = bottom - top,
+                max = cfg.max,
+                color,
+                ptop,
+                points,i,l,t,
+                k = self.anim.get(), gradiet;
+
+
+            if(data.config.showLabels) {
+                self.drawNames(ctx,cfg);
+            }
+
+            // the animation
+            if(k >= 1 && this._ready_idx < self.items.length -1) {
+                self._ready_idx ++;
+                self.anim.init();
+                k = self.anim.get();
+            }
+
+            if(this._ready_idx !== data.elements().length-1 || k!==1) {
+                this.fire("redraw");
+            }
+
+            S.each(self.items,function(linecfg,idx) {
+                var p;
+                if (idx !== self._ready_idx) {
+                    t = (idx > self._ready_idx)?0:1;
+                }else{
+                    t = k;
+                }
+
+                color = linecfg._color;
+                points = linecfg._points;
+
+                //draw bg
+                if(linecfg._drawbg) {
+                    ctx.save();
+                    ctx.globalAlpha = 0.4;
+                    maxtop = bottom - (bottom - linecfg._maxtop) * t;
+
+                    gradiet = ctx.createLinearGradient( left, maxtop, left, bottom);
+                    gradiet.addColorStop(0,color);
+                    gradiet.addColorStop(1,"rgb(255,255,255)");
+
+                    ctx.fillStyle = gradiet;
+                    ctx.beginPath();
+                    ctx.moveTo(left,bottom);
+
+                    for(i = 0; i < points.length; i++) {
+                        p = points[i];
+                        ptop = bottom - (bottom - p.y)*t;
+                        ctx.lineTo(p.x,ptop);
+                    }
+
+                    ctx.lineTo(right,bottom);
+                    ctx.stroke();
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                //draw line
+                ctx.save();
+                l = points.length;
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                for(i = 0; i < l; i++) {
+                    p = points[i];
+                    ptop = bottom - (bottom - p.y)*t;
+                    if(i===0) {
+                        ctx.moveTo(p.x,ptop);
+                    } else {
+                        ctx.lineTo(p.x,ptop);
+                    }
+                }
+                ctx.stroke();
+                ctx.restore();
+
+                //draw point
+                ctx.save();
+                for(i = 0; i < l; i++) {
+                    p = points[i];
+                    ptop = bottom - (bottom - p.y)*t;
+                    //circle outter
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    ctx.arc(p.x,ptop,5,0,Math.PI*2,true);
+                    ctx.closePath();
+                    ctx.fill();
+                    //circle innner
+                    if(i !== self._current) {
+                        ctx.fillStyle = "#fff";
+                        ctx.beginPath();
+                        ctx.arc(p.x,ptop,3,0,Math.PI*2,true);
+                        ctx.closePath();
+                        ctx.fill();
+                    }
+                }
+                ctx.restore();
+            });
+        },
+
+        init : function() {
+            this._ready_idx = 0;
+            this.chart.on("axishover",this._axis_hover,this);
+            this.chart.on("axisleave",this._axis_leave,this);
+        },
+
+        destory : function() {
+            this.chart.detach("axishover",this._axis_hover);
+            this.chart.detach("axisleave",this._axis_leave);
+        },
+
+        _axis_hover : function(e) {
+            var idx = e.index;
+            if(this._current !== idx) {
+                this._current = idx;
+                this.fire("redraw");
+                this.fire("showtooltip",{
+                    message : this.getTooltip(idx)
+                });
+            }
+        },
+
+        _axis_leave : function(e) {
+            this._current = -1;
+            this.fire("redraw");
+        },
+        /**
+         * get tip HTML by id
+         * @return {String}
+         **/
+        getTooltip : function(index) {
+            var self = this, ul, li;
+            ul= "<ul>";
+            S.each(self.items, function(item,idx) {
+                li = "<li><p style='color:" + item._color + "'>" +
+                        item._labels[index] +
+                    "</p></li>";
+                ul += li
+            });
+            ul += "</ul>";
+            return ul;
+        },
+        drawNames : function(ctx) {
+            var self = this,
+                cfg = self.drawcfg,
+                data = self.data.elements(),
+                l = data.length,
+                i = l - 1,
+                br = cfg.width - cfg.paddingRight,
+                by = cfg.paddingTop - 12,
+                d,
+                c;
+
+            for(; i>=0; i--) {
+                d = data[i];
+                if(d.notdraw) {
+                    continue;
+                }
+                c = self.data.getColor(i);
+                //draw text
+                ctx.save();
+                ctx.textAlign = "end";
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = "#808080";
+                ctx.font = "12px Arial";
+                ctx.fillText(d.name, br, by);
+                br -= ctx.measureText(d.name).width + 10;
+                ctx.restore();
+                //draw color dot
+                ctx.save();
+                ctx.beginPath();
+                ctx.fillStyle = c;
+                ctx.arc(br,by,5,0,Math.PI*2,true);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+                br -= 10;
+            }
+        }
+
+    });
+
+    return LineElement;
+},
+{
+    requires : ["chart/util"]
+});
+KISSY.add('chart/element_pie', function (S, Util) {
+    var MOUSE_LEAVE = "mouse_leave",
+        MOUSE_MOVE = "mouse_move";
+
+    function lighter(c) {
+        if (S.isString(c)) {
+            c = Util.Color(c);
+        };
+
+        var hsl = c.hslData(),
+            s = hsl[1],
+            l = hsl[2],
+            b = l + s * 0.5;
+
+        l = b*1.05 - s*.5;
+        return new Util.Color.hsl(hsl[0], s, l);
+    }
+
+    function PieElement(data, chart, drawcfg) {
+        var self = this;
+        self.data = data;
+        self.chart = chart;
+        self.type = 0;
+        self.config = data.config;
+        self.drawcfg = drawcfg;
+        self.initdata(drawcfg);
+        self.init();
+        self.anim = new Util.Anim(self.config.animationDuration,self.config.animationEasing)//,1,"bounceOut");
+        self.anim.init();
+    }
+
+    S.augment(PieElement, S.EventTarget, {
+        initdata : function (cfg) {
+            var self = this,
+                data = self.data,
+                total = 0,
+                end,
+                color,
+                pecent,
+                pecentStart;
+
+            self._x = data.config.showLabels ? cfg.width * 0.618 /2 : cfg.width/2;
+            self._y = cfg.height/2;
+            self._r = Math.min(cfg.height - cfg.paddingTop - cfg.paddingBottom, cfg.width - cfg.paddingLeft - cfg.paddingRight)/2;
+            self._r = Math.min(self._r, self._x - cfg.paddingLeft);
+            self._lx = cfg.width*0.618;
+            self.angleStart = -Math.PI/4;//Math.PI * 7/4;
+            self.antiClock = true;
+            self.items = [];
+            self._currentIndex = -1;
+            total = data.sum();
+
+            pecentStart = 0;
+            S.each(data.elements(),function (item,idx) {
+                pecent   = item.data/total;
+                end = pecentStart + pecent;
+                color = data.getColor(idx);
+                self.items.push({
+                    start : pecentStart,
+                    end : end,
+                    color : color,
+                    color2 : lighter(color).css(),
+                    textColor : "#999",
+                    labelRight : cfg.width - 50,
+                    labelY : 50 + 20 * idx
+                });
+                pecentStart = end;
+                if (idx === 0 ) {
+                    self.angleStart += pecent * Math.PI;
+                }
+            });
+
+        },
+
+        /**
+         * Draw the Labels for all Element
+         * @private
+         */
+        drawLabels: function (ctx) {
+            var self = this,
+                data = self.data,
+                items = self.items,
+                item,
+                sum = data.sum(),
+                labelText,
+                labelX , labelY;
+            ctx.save();
+            ctx.textBaseline = 'middle';
+            ctx.textAlign = 'right';
+            data.eachElement(function (elem,idx) {
+                item = items[idx];
+                labelY = item.labelY;
+                labelX = item.labelRight;
+                ctx.fillStyle = items[idx].color;
+                ctx.beginPath();
+                ctx.moveTo(labelX,labelY)
+                ctx.font = "15px sans-serif"
+                ctx.fillRect(labelX - 10,labelY-5,10,10);
+                ctx.closePath();
+                ctx.fillStyle = items[idx].textColor;
+                labelText = S.substitute(self.config.labelTemplate, {
+                        data : Util.numberFormat(elem.data, elem.format),
+                        name : elem.name,
+                        pecent : Util.numberFormat(elem.data/sum * 100,"0.00")
+                    }
+                );
+                ctx.fillText(labelText, labelX - 15, labelY);
+            });
+            ctx.restore();
+        },
+
+        draw : function (ctx) {
+            var self = this,
+                px = self._x,
+                py = self._y,
+                pr = self._r,
+                start, end,
+                bgStart,bgEnd,
+                k = self.anim.get(),
+                config = self.data.config,
+                gra;
+            if (k < 1) {
+                self.fire("redraw");
+            }
+            if (config.showLabels) {
+                self.drawLabels(ctx);
+            }
+            ctx.save();
+            // shadow stack
+            if (config.drawShadow) {
+                ctx.shadowBlur = config.shadow.blur;
+                ctx.shadowColor = config.shadow.color;
+            }
+
+            ctx.save();
+            ctx.lineWidth = 0.5;
+            ctx.strokeStyle = "#fff";
+
+            S.each(self.items, function (p, idx) {
+                start = p.start * k * 2 * Math.PI;
+                end = p.end* k * 2 * Math.PI;
+                ctx.save();
+                ctx.fillStyle = idx === self._currentIndex? p.color2: p.color;
+                ctx.beginPath();
+                p._currentStart = self.antiClock?self.angleStart-start:self.angleStart+start;
+                p._currentEnd = self.antiClock?self.angleStart-end-0.005 :self.angleStart+end+0.005;
+
+                if (idx === 0 && k >= 1 && config.firstPieOut) {
+                    ctx.moveTo(px + 2,py - 2);
+                    ctx.arc(px + 2, py - 2, pr, p._currentStart, p._currentEnd, self.antiClock);
+                } else {
+                    ctx.moveTo(px,py);
+                    ctx.arc(px, py, pr, p._currentStart, p._currentEnd, self.antiClock);
+                }
+                ctx.closePath();
+                ctx.fill();
+                //ctx.stroke();
+                ctx.restore();
+            });
+            ctx.restore();
+            //shadw stack
+            ctx.restore();
+        },
+
+        init : function () {
+            this.chart.on(MOUSE_MOVE,this.chartMouseMove,this);
+            this.chart.on(MOUSE_LEAVE,this.chartMouseLeave,this);
+        },
+        destory : function () {
+            this.chart.detach(MOUSE_MOVE,this.chartMouseMove);
+            this.chart.detach(MOUSE_LEAVE,this.chartMouseLeave);
+        },
+
+        chartMouseMove : function (ev) {
+            var self = this,
+                pr = self._r,
+                dx = ev.x - self._x,
+                dy = ev.y - self._y,
+                anglestart,
+                angleend, angle,t,
+                item, items = self.items;
+
+            // if mouse out of pie
+            if (dx*dx + dy*dy > pr*pr) {
+                self.fire("hidetooltip");
+                self._currentIndex = -1;
+                self.fire("redraw");
+                return;
+            };
+
+            //get the current mouse angle from 
+            //the center of the pie
+            if (dx != 0 ) {
+                angle = Math.atan(dy/dx);
+                if (dy < 0 && dx > 0) {
+                    angle += 2*Math.PI;
+                }
+                if (dx < 0) {
+                    angle += Math.PI;
+                }
+            } else {
+                angle = dy >= 0 ? Math.PI/2 : 3 * Math.PI/2;
+            }
+
+            //find the pieace under mouse
+            for(i = items.length - 1; i >= 0 ; i--) {
+                item = items[i];
+                t = Math.PI * 2
+
+                anglestart = item._currentStart;
+                angleend = item._currentEnd;
+
+                if (anglestart > angleend) {
+                    t = anglestart;
+                    anglestart = angleend;
+                    angleend = t;
+                }
+
+                t = angleend-anglestart;
+
+                anglestart = anglestart % (Math.PI * 2)
+
+                if (anglestart < 0 ) {
+                    if (anglestart + t < 0 || angle > Math.PI) {
+                        anglestart = anglestart + Math.PI * 2;
+                    }
+                }
+
+                if (angle > anglestart && angle < anglestart + t && i !== self._currentIndex) {
+                    self._currentIndex = i;
+                    self.fire("redraw");
+                    self.fire("showtooltip", {
+                        message : self.data.elements()[i].label
+                    });
+                }
+            }
+
+        },
+
+        chartMouseLeave : function (ev) {
+            this._currentIndex = -1;
+            this.fire("hidetooltip");
+            this.fire("redraw");
+        }
+    });
+
+    return PieElement;
+
+},{
+    requires : ["chart/util"]
+});
+KISSY.add("chart/frame",function(S, Path){
+
+    /**
+     * The Border Layer
+     */
+    function Frame(data,cfg){
+        this.data = data;
+        this.path = new Path.RectPath(
+                        cfg.paddingLeft,
+                        cfg.paddingTop,
+                        cfg.width - cfg.paddingRight - cfg.paddingLeft,
+                        cfg.height - cfg.paddingBottom - cfg.paddingTop
+                    );
+    }
+    S.augment(Frame,{
+        draw : function(ctx,cfg){
+            ctx.save();
+            ctx.strokeStyle = this.data.config.frameColor;
+            ctx.lineWidth = 2.0;
+            this.path.draw(ctx);
+            ctx.stroke();
+            ctx.restore();
+        }
+    });
+
+    return Frame;
+}, {
+    requires : ['chart/path']
+});
+KISSY.add('chart', function (ev, Chart) {
+    return Chart;
+}, {
+    requires : ['chart/chart']
+});
+KISSY.add('chart/path',function(S){
+    var ie = S.UA.ie;
+
+    function Path(x,y,w,h){ }
+    S.augment(Path,{
+        /**
+         * get the path draw
+         */
+        draw : function(ctx){ },
+        /**
+         * get the path draw
+         */
+        inpath : function(ox,oy,ctx){ }
+    });
+
+    function RectPath(x,y,w,h){
+        this.rect = {x:x,y:y,w:w,h:h};
+    }
+
+    S.extend(RectPath, Path, {
+        draw : function(ctx){
+            var r = this.rect;
+            ctx.beginPath();
+            ctx.rect(r.x,r.y,r.w,r.h);
+        },
+        inpath : function(ox,oy,ctx){
+            var r = this.rect,
+                left = r.x,
+                top = r.y,
+                right = left + r.w,
+                bottom = top + r.h,
+                detect = ox > left && ox < right && oy > top && oy < bottom;
+            return detect;
+        }
+    });
+
+    function ArcPath(x,y,r,b,e,a){
+        this._arc= {x:x,y:y,r:r,b:b,e:e,a:a};
+    }
+    S.extend(ArcPath, Path, {
+        draw : function(ctx){
+            var r = this._arc;
+            ctx.beginPath();
+            ctx.moveTo(r,x,r.y);
+            ctx.arc(r.x,r.y,r.r,r.b,r.e,r.a);
+            ctx.closePath();
+        },
+        /**
+         * detect if point(ox,oy) in path
+         */
+        inpath : function(ox,oy,ctx){
+            if(ctx){
+                this.draw(ctx);
+                return ctx.isPointInPath(ox,oy);
+            }
+            var r = this._arc,
+                dx = ox - r.x,
+                dy = ox - r.y,
+                incircle = (Math.pow(dx, 2) + Math.pow(dy, 2))<= Math.pow(r.r, 2),
+                detect;
+            if(!incircle) {
+                return false;
+            }
+            if(dx === 0){
+                if(dy === 0){
+                    return false;
+                }else{
+                    da = dy>0?Math.PI/2:Math.PI*1.5;
+                }
+            }else{
+                //TODO
+            }
+
+            return detect;
+        }
+    });
+
+    return {
+        Path : Path,
+        RectPath : RectPath,
+        ArcPath : ArcPath
+    };
+});
+KISSY.add('chart/simpletooltip', function(S){
+
+    /**
+     * 工具提示，总是跟随鼠标
+     */
+    function SimpleTooltip(){
+        var self = this;
+        self.n_c = S.all("<div class='ks-chart-tooltip'>");
+        self._offset = {left:0,top:0}
+        self.hide();
+
+        S.ready(function(){
+            S.one('body')
+                .append(self.n_c)
+                .on("mousemove", self._mousemove, self);
+        });
+
+    }
+
+    S.augment(SimpleTooltip,{
+        _mousemove : function(ev){
+            var self = this,
+                ttx = ev.pageX,
+                tty = ev.pageY;
+            if(self._show){
+                self._updateOffset(ttx, tty);
+            }else{
+                //save the position
+                self._offset.left = ttx;
+                self._offset.top = tty;
+            }
+        },
+
+        _updateOffset : function(x,y){
+            var Dom = S.DOM;
+
+            if(x > Dom.scrollLeft() + Dom.viewportWidth() - 100){
+                x -= this.n_c.width() + 6;
+            }
+            if(y > Dom.scrollTop() + Dom.viewportHeight() - 100){
+                y -= this.n_c.height() + 20;
+            }
+            this.n_c.offset({left:x, top:y+12});
+        },
+        /**
+         * show the tooltip
+         * @param {String} the message to show
+         */
+        show : function(msg){
+            // console.log('show')
+            var self = this;
+            self._show = true;
+
+            self.n_c
+                .html(msg)
+                .css("display","block")
+
+        },
+        /**
+         * hide the tooltip
+         */
+        hide : function(){
+            // console.log('hide')
+            var self = this;
+            self._show = false;
+            self.n_c.css("display","none");
+        },
+
+        _init : function(){}
+    });
+
+    return SimpleTooltip;
+});
+
+
 
 /*! @source http://purl.eligrey.com/github/color.js/blob/master/color.js*/
-KISSY.add("chart/color", function(S) {
+KISSY.add('chart/util', function(S) {
+    /*
+     * color.js
+     * Version 0.2.1.2
+     *
+     * 2009-09-12
+     * 
+     * By Eli Grey, http://eligrey.com
+     * Licensed under the X11/MIT License
+     *   See LICENSE.md
+     */
     var Color = (function () {
         var str = "string",
             Color = function Color(r, g, b, a) {
@@ -1063,1191 +2499,27 @@ KISSY.add("chart/color", function(S) {
         return Color;
     }());
 
-
-    var chart = S.namespace("Chart");
-    chart.Color = Color;
-    return Color;
-});
-
-KISSY.add("chart/colors", function(S){
-    var P = S.namespace("Chart"),
-        colors = [
-         { c : "#00b0f0" },
-         { c : "#FF4037" },
-         { c : "#39B54A" },
-         { c : "#FEF56F" },
-         { c : "#c821ac" },
-         { c : "#D1EB53" }
-    ];
-    P.colors = colors;
-});
-KISSY.add("chart/data",function(S){
-    var P = S.namespace("Chart");
-
     /**
-     * 图表默认配置
+     * Formats the number according to the ‘format’ string;
+     * adherses to the american number standard where a comma
+     * is inserted after every 3 digits.
+     *  note: there should be only 1 contiguous number in the format,
+     * where a number consists of digits, period, and commas
+     *        any other characters can be wrapped around this number, including ‘$’, ‘%’, or text
+     *        examples (123456.789):
+     *          ‘0 - (123456) show only digits, no precision
+     *          ‘0.00 - (123456.78) show only digits, 2 precision
+     *          ‘0.0000 - (123456.7890) show only digits, 4 precision
+     *          ‘0,000 - (123,456) show comma and digits, no precision
+     *          ‘0,000.00 - (123,456.78) show comma and digits, 2 precision
+     *          ‘0,0.00 - (123,456.78) shortcut method, show comma and digits, 2 precision
+     *
+     * @method format
+     * @param format {string} the way you would like to format this text
+     * @return {string} the formatted number
+     * @public
      */
-    var defaultConfig= {
-        //上边距
-        paddingTop: 30,
-        //左边距
-        paddingLeft : 20,
-        //右边距
-        paddingRight : 20,
-        //底边距
-        paddingBottom : 20,
-        //是否显示标签
-        showLabels : true,
-
-        colors : [],
-        //动画间隔
-        animationDuration : .5,
-        //动画Easing函数
-        animationEasing : "easeInStrong",
-        //背景色 或 背景渐变
-        /*
-        {
-            start : "#222",
-            end : "#666"
-        }
-        */
-        backgroundStyle : false,
-        //坐标字体颜色
-        axisTextColor : "#999",
-        //坐标间隔背景颜色
-        axisBackgroundColor : "#EEE",
-        //坐标线框颜色
-        axisGridColor : "#e4e4e4",
-        //Number Format
-        //针对特定数据设置numberFormat可以用
-        //numberFormats : ['0.00','0.000']
-        //false表示不做format处理
-        numberFormat : false,
-        //边框颜色
-        frameColor : "#d7d7d7"
-    };
-
-    /**
-     * 特定图标配置
-     */
-    var specificConfig = {
-        'line' : {
-            //是否在折线下绘制渐变背景
-            //值为要绘制背景的折线index
-            drawbg : -1
-        },
-        'bar' : { },
-        'pie' : {
-            //pie 默认动画时间
-            animationDuration : 1.8,
-            //pie 的默认动画效果
-            animationEasing : "bounceOut",
-            paddingTop : 10,
-            paddingBottom : 10,
-            paddingLeft : 10,
-            paddingRight : 10,
-            shadow : true,
-            labelTemplete : "{name} {pecent}%", //{name} {data} {pecent}
-            firstPieOut : false // 第一块飞出
-        }
-    };
-
-    /**
-     * 数据默认配置
-     */
-    var defaultElementConfig = {
-        'default' : {
-            label : "{name} -  {data}"
-        },
-        'line':{
-        },
-        "pie" : {
-        },
-        "bar" : {
-        }
-    };
-
-    /**
-     * 图表数据
-     * 处理图表输入数据
-     * @constructor
-     * @param {Object} 输入的图表JSON数据
-     */
-    function Data(data){
-        if(!data || !data.type) return;
-        if(!this instanceof Data)
-            return new Data(data);
-        var self = this,
-            cfg = data.config;
-
-        self.origin = data;
-        data = S.clone(data);
-        self.type = data.type.toLowerCase();
-        //self._design = data.design;
-
-        self.config = cfg = S.merge(defaultConfig, specificConfig[self.type], cfg);
-
-        /**
-         * 配置兼容
-         */
-        S.each({
-            'left'  : 'paddingLeft',
-            'top'   : 'paddingTop',
-            'bottom': 'paddingBottom',
-            'right' : 'paddingRight'
-        }, function(item, key){
-            if(key in cfg && S.isNumber(cfg[key])){
-                cfg[item] = cfg[key];
-            }
-        });
-
-        self._elements = self._initElement(data);
-        self._elements = self._expandElement(self._elements);
-        self._initElementItem();
-        self._axis = data.axis;
-    }
-
-    S.augment(Data, /**@lends Data.protoptype*/{
-        /**
-         * get the AxisData
-         */
-        axis : function(){
-            return this._axis;
-        },
-
-        /**
-         * get the Element Data
-         */
-        elements : function(){
-            return this._elements;
-        },
-
-        /**
-         * get the the max length of each Element
-         */
-        maxElementLength: function(){
-            var ml = 0;
-            S.each(this._elements, function(elem,idx){
-                if(S.isArray(elem.items)){
-                    ml = Math.max(ml, elem.items.length);
-                } else {
-                    ml = Math.max(ml,1)
-                }
-            });
-            return ml;
-        },
-
-
-        /**
-         * Get the color for the Element
-         * from the user config or the default
-         * color
-         * @param {Number} the index of the element
-         * @param {String} type of Chart
-         */
-        getColor : function(idx,type){
-            var length = this._elements.length;
-            var usercolor = this.config.colors
-            if(S.isArray(usercolor) && usercolor[idx]){
-                return usercolor[idx];
-            }
-
-            //getColor frome user defined function
-            if(S.isFunction(usercolor)){
-                return usercolor(idx);
-            }
-
-            //get color from default Color getter
-            return this.getDefaultColor(idx,length,type);
-        },
-
-        /**
-         * return the sum of all Data
-         */
-        sum: function(){
-            var d = 0;
-            this.eachElement(function(item){
-                d += item.data;
-            });
-            return d;
-        },
-
-        /**
-         * Get the Biggest Data from element
-         */
-        max : function(){
-            return this._max;
-        },
-
-        /**
-         * get the default color depending on idx and length, and types of chart 
-         * @param {Number} index of element
-         * @param {Number} length of element
-         */
-        getDefaultColor : function (idx,length){
-            //在色相环上取色
-            var colorgap = 1/3,
-                //h = Math.floor(idx/3)/length + 1/(idx%3 + 1)*colorgap,
-                h = colorgap * idx, //h of color hsl
-                s = .7, // s of color hsl
-                b = 1,//b of  color hsb
-                l = b - s*.5, //l of color hsl
-                i, j, k;
-
-            if(idx < 3){
-                h = colorgap * idx + 0.05;
-            }else{
-                //防止最后一个颜色落在第3区间
-                if(length % 3 == 0){
-                    if(idx === length -1){
-                        idx = length - 2;
-                    }else
-                    if(idx === length - 2){
-                        idx = length - 1;
-                    }
-                }
-                i = idx % 3;
-                j = Math.ceil(length/3);
-                k = Math.ceil((idx + 1)/3);
-                h = i*colorgap + colorgap/j * (k-1);
-            }
-            return P.Color.hsl(h,s,l).hexTriplet();
-        },
-
-
-        /**
-         * execuse fn on each Element item
-         */
-        eachElement : function(fn){
-            var self = this;
-
-            S.each(self._elements, function(item,idx){
-                if(item.items){
-                    S.each(item.items, function(i, idx2){
-                        fn(i,idx,idx2);
-                    });
-                }else{
-                    fn(item, idx, -1);
-                }
-            });
-        },
-
-        /**
-         * Init the Element Item
-         * parse the label
-         */
-        _initElementItem: function(){
-            var self = this;
-            self._max = null;
-
-            self.eachElement(function(elem,idx,idx2){
-                if(idx === 0 && (!idx2) )self._max = elem.data || 0;
-
-                var defaultElem = S.merge(defaultElementConfig['default'], defaultElementConfig[self.type]||{});
-
-                elem.data = S.isNumber(elem.data) ? elem.data : 0;
-                //数字的格式
-                if(S.isArray(self.config.numberFormats) ){
-                    elem.format = self.config.numberFormats[idx];
-                }
-
-                if(typeof elem.format == 'undefined' ){
-                    elem.format = self.config.numberFormat;
-                }
-
-                elem.label = elem.label || defaultElem.label;
-                elem.label = S.substitute(
-                    elem.label,
-                    {
-                        name : elem.name,
-                        data : elem.format?P.format(elem.data, elem.format):elem.data
-                    }
-                );
-                self._max = Math.max(self._max, elem.data);
-            });
-        },
-
-        /**
-         * expand the sub element
-         * @param {Object} the Element Object
-         * @private
-         */
-        _expandElement : function(data){
-            var datas,
-                itemdata,
-                self = this;
-            S.each(data, function(item,idx){
-                if(S.isArray(item.datas)){
-                    item.items = item.items || [];
-                    S.each(item.datas, function(d,n){
-                        itemdata = {
-                            name : item.name,
-                            data : d
-                        };
-                        if(item.label){
-                            itemdata.label = item.label;
-                        }
-                        if(item.labels && S.isString(item.labels[n])){
-                            itemdata.label = item.labels[n];
-                        }
-
-                        delete item.datas;
-                        item.items.push(itemdata);
-                    });
-                }
-
-            });
-            return data;
-        },
-
-        /**
-         * normalize Input Element
-         * @private
-         * @param {Object} input data
-         */
-        _initElement : function(data){
-            var elements = null,
-                elem,
-                self = this,
-                newelem;
-
-            //数组形式
-            if(data.elements && S.isArray(data.elements)){
-                elements = S.clone(data.elements);
-            }
-
-            //对象形式
-            if(!data.elements && data.element && S.isArray(data.element.names)){
-                elements = [];
-                elem = data.element;
-                S.each(elem.names, function(name,idx){
-                    elements.push({
-                        name   : name,
-                        data   : self._getLabel(elem.datas, idx),
-                        label  : self._getLabel(elem.labels, idx) || elem.label
-                    });
-                });
-            }
-
-            return elements;
-        },
-
-        /**
-         * 如果是数组，返回label[n]
-         * 否则返回labels
-         * @private
-         * @param {Any} labels of chart
-         * @param {Number} offset of label
-         */
-        _getLabel : function(labels, offset){
-            if(S.isArray(labels)){
-                return (offset < labels.length) ? labels[offset]:null;
-            }else{
-                return false;
-            }
-        }
-    });
-
-    P.Data = Data;
-
-    return Data;
-},{requires : ["chart/color"]});
-KISSY.add("chart/element",function(S){
-    var P = S.namespace("Chart"),
-        Dom = S.DOM,
-        Event = S.Event;
-
-
-    function Element (data,chart,drawcfg){
-    }
-
-    S.mix(Element,{
-        getElement : function(data,chart,cfg){
-            var E;
-            switch(data.type){
-                case "line":
-                    E = P.LineElement;
-                    break;
-                case "pie":
-                    E = P.PieElement;
-                    break;
-                case "bar":
-                    E = P.BarElement;
-                    break;
-            }
-            return new E(data,chart,cfg);
-        },
-
-        getMax : function(data){
-            var max = data[0].data[0],
-                elementidx, elementl = data.length,
-                dataidx, datal;
-
-            for(elementidx = 0; elementidx < elementl; elementidx ++){
-                element = data[elementidx];
-                for(dataidx = 0, datal = element.data.length; dataidx < datal; dataidx++){
-                    max = Math.max(max, element.data[dataidx] || 0);
-                }
-            }
-            return max;
-        }
-    });
-
-    S.augment(Element,
-        S.EventTarget,
-        {
-        drawNames : function(ctx){
-            var self = this,
-                cfg = self.drawcfg,
-                data = self.data.elements(),
-                l = data.length,
-                i = l - 1,
-                br = cfg.width - cfg.paddingRight,
-                by = cfg.paddingTop - 12,
-                d,c;
-            for(; i>=0; i--){
-                d = data[i];
-                if(d.notdraw){
-                    continue;
-                }
-                c = self.data.getColor(i);
-                //draw text
-                ctx.save();
-                ctx.textAlign = "end";
-                ctx.textBaseline = "middle";
-                ctx.fillStyle = "#808080";
-                ctx.font = "12px Arial";
-                ctx.fillText(d.name, br, by);
-                br -= ctx.measureText(d.name).width + 10;
-                ctx.restore();
-                //draw color dot
-                ctx.save();
-                ctx.beginPath();
-                ctx.fillStyle = c;
-                ctx.arc(br,by,5,0,Math.PI*2,true);
-                ctx.closePath();
-                ctx.fill();
-                ctx.restore();
-                br -= 10;
-            }
-        },
-        init : function(){},
-        initdata : function(){},
-        destory : function(){},
-        draw : function(ctx,cfg){},
-        drawBar : function(ctx,cfg){},
-        getTooltip : function(index){}
-    });
-
-
-
-
-    P.Element = Element;
-    return Element;
-});
-KISSY.add("chart/element-bar",function(S,Element){
-    S.log('element-bar');
-    var P = S.namespace("Chart"),
-        Dom = S.DOM,
-        Event = S.Event,
-        darker = function(c){
-            var hsl = c.hslData(),
-                l = hsl[2],
-                s = hsl[1],
-                b  = (l + s/2) * 0.6,
-            l = b - s/2;
-            return new P.Color.hsl(hsl[0],s,l);
-        };
-    /**
-     * class BarElement for Bar Chart
-     */
-    function BarElement(data,chart,drawcfg){
-        var self = this;
-        self.data = data;
-        self.chart = chart;
-        self.drawcfg = drawcfg;
-        self.config = data.config;
-
-        self.initData(drawcfg);
-        self.initEvent();
-
-        self.current = [-1,-1];
-        self.anim = new P.Anim(self.config.animationDuration,self.config.animationEasing)//,1,"bounceOut");
-        self.anim.init();
-    }
-
-    S.extend(BarElement, P.Element,{
-        initData : function(cfg){
-            var self      = this,
-                data      = self.data,
-                elemLength= data.elements().length,
-                maxlength = data.maxElementLength(),
-                right = cfg.width - cfg.paddingRight,
-                left = cfg.paddingLeft,
-                bottom = cfg.height - cfg.paddingBottom,
-                itemwidth = (right - left)/maxlength,
-                gap = itemwidth/5/elemLength,//gap between bars
-                padding = itemwidth/3/elemLength,
-                barwidth = (itemwidth - (elemLength - 1) * gap - 2*padding)/elemLength,
-                barheight,barleft,bartop,color,
-                items = [];
-            self.maxLength = maxlength;
-
-            self.items = items;
-            self.data.eachElement(function(elem,idx,idx2){
-                if(idx2 === -1) idx2 = 0;
-
-                if(!items[idx]){
-                    items[idx] = {
-                        _x : [],
-                        _top  :  [],
-                        _left  :  [],
-                        _path  :  [],
-                        _width  :  [],
-                        _height  :  [],
-                        _colors : [],
-                        _dcolors : [],
-                        _labels : []
-                    }
-                }
-
-                var element = items[idx];
-
-                barheight = (bottom - cfg.top) * elem.data / cfg.max;
-                barleft = left + idx2 * itemwidth + padding + idx * (barwidth + gap);
-                bartop = bottom - barheight;
-
-                color = P.Color(self.data.getColor(idx,"bar"));
-                colord = darker(color);
-
-                element._left[idx2] = barleft;
-                element._top[idx2] = bartop;
-                element._width[idx2] = barwidth;
-                element._height[idx2] = barheight;
-                element._path[idx2] = new P.RectPath(barleft,bartop,barwidth,barheight);
-                element._x[idx2] = barleft+barwidth/2;
-                element._colors[idx2] = color;
-                element._dcolors[idx2] = colord;
-                element._labels[idx2] = elem.label;
-            });
-
-        },
-
-        /**
-         * draw the barElement
-         * @param {Object} Canvas Object
-         */
-        draw : function(ctx){
-            var self = this,
-                data = self.items,
-                ml = self.maxLength,
-                color,gradiet,colord,chsl,
-                barheight,cheight,barleft,bartop,
-                //for anim
-                k = self.anim.get(),
-                i;
-
-            if(self.data.config.showLabels){
-                self.drawNames(ctx);
-            }
-
-            S.each(data, function(bar, idx){
-                for(i = 0; i< ml; i++){
-                    barleft = bar._left[i];
-                    barheight = bar._height[i];
-                    cheight = barheight * k;
-                    bartop = bar._top[i] + barheight - cheight;
-                    barwidth = bar._width[i];
-                    color =    bar._colors[i];
-                    dcolor =    bar._dcolors[i];
-
-                    //draw backgraound
-                    gradiet = ctx.createLinearGradient(barleft,bartop,barleft,bartop + cheight);
-                    gradiet.addColorStop(0,color.css());
-                    gradiet.addColorStop(1,dcolor.css());
-
-                    ctx.fillStyle = gradiet;
-                    //ctx.fillStyle = color;
-                    ctx.fillRect(barleft,bartop,barwidth,cheight);
-                    //draw label on the bar
-                    if(ml === 1 && barheight > 25){
-                        ctx.save();
-                        ctx.fillStyle = "#fff";
-                        ctx.font = "20px bold Arial";
-                        ctx.textBaseline = "top";
-                        ctx.textAlign = "center";
-                        data = self.data.elements()[idx];
-                        ctx.fillText(P.format(data.data, data.format), bar._x[i], bartop + 2);
-                        ctx.restore();
-                    }
-                }
-
-            });
-
-            if(k < 1) {
-                self.fire("redraw");
-            }
-        },
-
-        initEvent : function(){
-            Event.on(this.chart,P.Chart.MOUSE_MOVE,this.chartMouseMove,this);
-            Event.on(this.chart,P.Chart.MOUSE_LEAVE,this.chartMouseLeave,this);
-        },
-
-        destory : function(){
-            Event.remove(this.chart,P.Chart.MOUSE_MOVE,this.chartMouseMove);
-            Event.remove(this.chart,P.Chart.MOUSE_LEAVE,this.chartMouseLeave);
-        },
-
-        chartMouseMove : function(ev){
-            var current = [-1,-1],
-                items = this.items;
-
-            S.each(this.items, function(bar,idx){
-                S.each(bar._path, function(path,index){
-                    if(path.inpath(ev.x,ev.y)){
-                        current = [idx,index];
-                    }
-                });
-            });
-
-            if( current[0] === this.current[0] &&
-                current[1] === this.current[1])
-            {
-                return;
-            }
-            this.current = current;
-            if(current[0] + current[1] >= 0){
-                this.fire("barhover",{index:current});
-                this.fire("showtooltip",{
-                    top : items[current[0]]._top[current[1]],
-                    left : items[current[0]]._x[current[1]],
-                    message : this.getTooltip(current)
-                });
-            }else{
-                this.fire("hidetooltip");
-            }
-        },
-        chartMouseLeave : function(){
-            this.current = [-1,-1];
-        },
-        /**
-         * get tip HTML by id
-         * @return {String}
-         **/
-        getTooltip : function(index){
-            var self = this,
-                eidx = index[0],
-                didx = index[1],
-                item = self.items[eidx],
-                msg = "<div class='bartip'>"+
-                    "<span style='color:"+item._colors[didx].css()+";'>"+
-                    item._labels[didx]+"</span></div>";
-            return msg;
-        }
-    });
-
-    P.BarElement = BarElement;
-    return BarElement;
-},{
-    requires : ["chart/element"]
-});
-KISSY.add("chart/element-line",function(S){
-    var P = S.namespace("Chart"),
-        Dom = S.DOM,
-        Event = S.Event;
-    /**
-     * class Element for Line chart
-     */
-    function LineElement(data,chart,drawcfg){
-        var self = this;
-        self.chart = chart;
-        self.data = data;
-        self.elements = data.elements();
-        self._current = -1;
-        self.config = data.config;
-        self.drawcfg = drawcfg;
-        self.initdata(drawcfg);
-        self._ready_idx = -1;
-        self.init();
-
-        self.anim = new P.Anim(self.config.animationDuration,self.config.animationEasing);
-        self.anim.init();
-    }
-
-    S.extend(LineElement, P.Element, {
-        /**
-         * 根据数据源，生成图形数据
-         */
-        initdata : function(cfg){
-            var self = this,
-                data = self.data,
-                elements = self.elements,
-                ml = data.maxElementLength(),
-                left = cfg.paddingLeft,
-                bottom = cfg.height - cfg.paddingBottom,
-                height = bottom - cfg.paddingTop,
-                width = cfg.width - cfg.paddingRight - left,
-                gap = width/(ml-1),
-                maxtop, i,j;
-            var items = [];
-            self.items = items;
-
-            data.eachElement(function(elem,idx,idx2){
-                if(!items[idx]){
-                    items[idx] = {
-                        _points : [],
-                        _labels : [],
-                        _color : data.getColor(idx),
-                        _maxtop : bottom,
-                        _drawbg : idx === data.config.drawbg
-                    };
-                }
-                var element = items[idx];
-                ptop = Math.max(bottom - elem.data/ cfg.max * height , cfg.paddingTop - 5);
-                element._maxtop = Math.min(element._maxtop, ptop);
-                element._labels[idx2] = elem.label;
-                element._points[idx2] = {
-                    x : left + gap*idx2,
-                    y : ptop,
-                    bottom : bottom
-                };
-
-            });
-
-        },
-
-        draw : function(ctx,cfg){
-            var self = this,
-                data = self.data,
-                left = cfg.paddingLeft,
-                right = cfg.width - cfg.paddingRight,
-                top = cfg.paddingTop,
-                bottom = cfg.height - cfg.paddingBottom,
-                height = bottom - top,
-                max = cfg.max,
-                color,
-                ptop,
-                points,i,l,t,
-                k = self.anim.get(), gradiet;
-
-
-            if(data.config.showLabels){
-                self.drawNames(ctx,cfg);
-            }
-
-            // the animation
-            if(k >= 1 && this._ready_idx < self.items.length -1){
-                self._ready_idx ++;
-                self.anim.init();
-                k = self.anim.get();
-            }
-
-            if(this._ready_idx !== data.elements().length-1 || k!==1){
-                this.fire("redraw");
-            }
-
-            S.each(self.items,function(linecfg,idx){
-                var p;
-                if (idx !== self._ready_idx) {
-                    t = (idx > self._ready_idx)?0:1;
-                }else{
-                    t = k;
-                }
-
-                color = linecfg._color;
-                points = linecfg._points;
-
-                //draw bg
-                if(linecfg._drawbg){
-                    ctx.save();
-                    ctx.globalAlpha = 0.4;
-                    maxtop = bottom - (bottom - linecfg._maxtop) * t;
-
-                    gradiet = ctx.createLinearGradient( left, maxtop, left, bottom);
-                    gradiet.addColorStop(0,color);
-                    gradiet.addColorStop(1,"rgb(255,255,255)");
-
-                    ctx.fillStyle = gradiet;
-                    ctx.beginPath();
-                    ctx.moveTo(left,bottom);
-
-                    for(i = 0; i < points.length; i++){
-                        p = points[i];
-                        ptop = bottom - (bottom - p.y)*t;
-                        ctx.lineTo(p.x,ptop);
-                    }
-
-                    ctx.lineTo(right,bottom);
-                    ctx.stroke();
-                    ctx.fill();
-                    ctx.restore();
-                }
-
-                //draw line
-                ctx.save();
-                l = points.length;
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                for(i = 0; i < l; i++){
-                    p = points[i];
-                    ptop = bottom - (bottom - p.y)*t;
-                    if(i===0){
-                        ctx.moveTo(p.x,ptop);
-                    } else {
-                        ctx.lineTo(p.x,ptop);
-                    }
-                }
-                ctx.stroke();
-                ctx.restore();
-
-                //draw point
-                ctx.save();
-                for(i = 0; i < l; i++){
-                    p = points[i];
-                    ptop = bottom - (bottom - p.y)*t;
-                    //circle outter
-                    ctx.fillStyle = color;
-                    ctx.beginPath();
-                    ctx.arc(p.x,ptop,5,0,Math.PI*2,true);
-                    ctx.closePath();
-                    ctx.fill();
-                    //circle innner
-                    if(i !== self._current){
-                        ctx.fillStyle = "#fff";
-                        ctx.beginPath();
-                        ctx.arc(p.x,ptop,3,0,Math.PI*2,true);
-                        ctx.closePath();
-                        ctx.fill();
-                    }
-                }
-                ctx.restore();
-            });
-        },
-
-        init : function(){
-            this._ready_idx = 0;
-            Event.on(this.chart,"axishover",this._axis_hover,this);
-            Event.on(this.chart,"axisleave",this._axis_leave,this);
-        },
-
-        destory : function(){
-            Event.remove(this.chart,"axishover",this._axis_hover);
-            Event.remove(this.chart,"axisleave",this._axis_leave);
-        },
-
-        _axis_hover : function(e){
-            var idx = e.index;
-            if(this._current !== idx){
-                this._current = idx;
-                this.fire("redraw");
-                this.fire("showtooltip",{
-                    message : this.getTooltip(idx)
-                });
-            }
-        },
-
-        _axis_leave : function(e){
-            this._current = -1;
-            this.fire("redraw");
-        },
-        /**
-         * get tip HTML by id
-         * @return {String}
-         **/
-        getTooltip : function(index){
-            var self = this, ul, li;
-            ul= "<ul>";
-            S.each(self.items, function(item,idx){
-                li = "<li><p style='color:" + item._color + "'>" +
-                        item._labels[index] +
-                    "</p></li>";
-                ul += li
-            });
-            ul += "</ul>";
-            return ul;
-        }
-
-    });
-
-    P.LineElement = LineElement;
-    return LineElement;
-},
-{
-    requires : ["chart/element"]
-});
-KISSY.add("chart/element-pie",function(S){
-    var P = S.namespace("Chart"),
-        Event = S.Event,
-        lighter = function(c){
-            if(S.isString(c)){
-                c = P.Color(c)
-            };
-            var hsl = c.hslData(),
-                s = hsl[1],
-                l = hsl[2],
-                b = l + s * 0.5;
-            l = b*1.05 - s*.5;
-            return new P.Color.hsl(hsl[0], s, l);
-        };
-
-    function PieElement(data,chart,drawcfg){
-        var self = this;
-        self.data = data;
-        self.chart = chart;
-        self.type = 0;
-        self.config = data.config;
-        self.drawcfg = drawcfg;
-        self.initdata(drawcfg);
-        self.init();
-        self.anim = new P.Anim(self.config.animationDuration,self.config.animationEasing)//,1,"bounceOut");
-        self.anim.init();
-    }
-
-    S.extend(PieElement,P.Element,{
-        initdata : function(cfg){
-            var self = this,
-                data = self.data,
-                total = 0,
-                end,
-                color,
-                pecent,pecentStart;
-
-            self._x = data.config.showLabels ? cfg.width * 0.618 /2 : cfg.width/2;
-            self._y = cfg.height/2;
-            self._r = Math.min(cfg.height - cfg.paddingTop - cfg.paddingBottom, cfg.width - cfg.paddingLeft - cfg.paddingRight)/2;
-            self._r = Math.min(self._r, self._x - cfg.paddingLeft);
-            self._lx = cfg.width*0.618;
-            self.angleStart = -Math.PI/4;//Math.PI * 7/4;
-            self.antiClock = true;
-            self.items = [];
-            self._currentIndex = -1;
-            total = data.sum();
-
-            pecentStart = 0;
-            S.each(data.elements(),function(item,idx){
-                pecent   = item.data/total;
-                end = pecentStart + pecent;
-                color = data.getColor(idx);
-                self.items.push({
-                    start : pecentStart,
-                    end : end,
-                    color : color,
-                    color2 : lighter(color).css(),
-                    textColor : "#999",
-                    labelRight : cfg.width - 50,
-                    labelY : 50 + 20 * idx
-                });
-                pecentStart = end;
-                if(idx === 0 ){
-                    self.angleStart += pecent * Math.PI;
-                }
-            });
-
-        },
-
-        /**
-         * Draw the Labels for all Element
-         * @private
-         */
-        drawLabels: function(ctx){
-            var self = this,
-                data = self.data,
-                items = self.items,
-                item,
-                sum = data.sum(),
-                labelText,
-                labelX , labelY;
-            ctx.save();
-            ctx.textBaseline = 'middle';
-            ctx.textAlign = 'right';
-            data.eachElement(function(elem,idx){
-                item = items[idx];
-                labelY = item.labelY;
-                labelX = item.labelRight;
-                ctx.fillStyle = items[idx].color;
-                ctx.beginPath();
-                ctx.moveTo(labelX,labelY)
-                ctx.font = "15px sans-serif"
-                ctx.fillRect(labelX - 10,labelY-5,10,10);
-                ctx.closePath();
-                ctx.fillStyle = items[idx].textColor;
-                labelText = S.substitute(self.data.config.labelTemplete,{data:P.format(elem.data,elem.format),name:elem.name, pecent : P.format(elem.data/sum * 100,"0.00")});
-                ctx.fillText(labelText, labelX - 15, labelY);
-            });
-            ctx.restore();
-        },
-
-        draw : function(ctx){
-            var self = this,
-                px = self._x,
-                py = self._y,
-                pr = self._r,
-                start, end,
-                bgStart,bgEnd,
-                k = self.anim.get(),
-                config = self.data.config,
-                gra;
-            if(k < 1){
-                self.fire("redraw");
-            }
-            if(config.showLabels){
-                self.drawLabels(ctx);
-            }
-
-            //draw bg shadow
-            if(config.shadow){
-                ctx.save();
-                ctx.fillStyle = "#fff";
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = "black";
-                ctx.beginPath();
-                ctx.moveTo(px,py);
-                bgStart = self.angleStart;
-                bgEnd = self.antiClock?bgStart - Math.PI * 2 * k : bgStart + Math.PI * 2 * k;
-                ctx.arc(px, py, pr-1, bgStart, bgEnd, self.antiClock);
-                ctx.fill();
-                ctx.restore();
-            }
-
-            ctx.save();
-            ctx.lineWidth = 0.5;
-            ctx.strokeStyle = "#fff";
-
-            S.each(self.items, function(p, idx){
-                start = p.start * k * 2 * Math.PI;
-                end = p.end* k * 2 * Math.PI;
-                ctx.save();
-                ctx.fillStyle = idx === self._currentIndex? p.color2: p.color;
-                ctx.beginPath();
-                p._currentStart = self.antiClock?self.angleStart-start:self.angleStart+start;
-                p._currentEnd = self.antiClock?self.angleStart-end-0.005 :self.angleStart+end+0.005;
-                if(idx === 0 && k >= 1 && config.firstPieOut) {
-                    ctx.moveTo(px + 2,py - 2);
-                    ctx.arc(px + 2, py - 2, pr, p._currentStart, p._currentEnd, self.antiClock);
-                }else{
-                    ctx.moveTo(px,py);
-                    ctx.arc(px, py, pr, p._currentStart, p._currentEnd, self.antiClock);
-                }
-                ctx.closePath();
-                ctx.fill();
-                ctx.stroke();
-                ctx.restore();
-            });
-            ctx.restore();
-        },
-
-        init : function(){
-            Event.on(this.chart,P.Chart.MOUSE_MOVE,this.chartMouseMove,this);
-            Event.on(this.chart,P.Chart.MOUSE_LEAVE,this.chartMouseLeave,this);
-        },
-        destory : function(){
-            Event.remove(this.chart,P.Chart.MOUSE_MOVE,this.chartMouseMove);
-            Event.remove(this.chart,P.Chart.MOUSE_LEAVE,this.chartMouseLeave);
-        },
-
-        chartMouseMove : function(ev){
-            var self = this,
-                pr = self._r,
-                dx = ev.x - self._x,
-                dy = ev.y - self._y,
-                anglestart,
-                angleend, angle,t,
-                item, items = self.items;
-
-            // if mouse out of pie
-            if(dx*dx + dy*dy > pr*pr){
-                self.fire("hidetooltip");
-                self._currentIndex = -1;
-                self.fire("redraw");
-                return;
-            };
-
-            //get the current mouse angle from 
-            //the center of the pie
-            if(dx != 0 ){
-                angle = Math.atan(dy/dx);
-                if(dy < 0 && dx > 0){
-                    angle += 2*Math.PI;
-                }
-                if(dx < 0){
-                    angle += Math.PI;
-                }
-            }else{
-                angle = dy >= 0 ? Math.PI/2 : 3 * Math.PI/2;
-            }
-
-            //find the pieace under mouse
-            for(i = items.length - 1; i >= 0 ; i--){
-                item = items[i];
-                t = Math.PI * 2
-
-                anglestart = item._currentStart;
-                angleend = item._currentEnd;
-
-                if(anglestart > angleend){
-                    t = anglestart;
-                    anglestart = angleend;
-                    angleend = t;
-                }
-
-                t = angleend-anglestart;
-
-                anglestart = anglestart % (Math.PI * 2)
-
-                if(anglestart < 0 ){
-                    if(anglestart + t < 0 || angle > Math.PI){
-                        anglestart = anglestart + Math.PI * 2;
-                    }
-                }
-
-                if(angle > anglestart && angle < anglestart + t && i !== self._currentIndex){
-                    self._currentIndex = i;
-                    self.fire("redraw");
-                    self.fire("showtooltip",{
-                        message : self.data.elements()[i].label
-                    });
-                }
-            }
-
-        },
-
-        chartMouseLeave : function(ev){
-            this._currentIndex = -1;
-            this.fire("hidetooltip");
-            this.fire("redraw");
-        }
-    });
-
-    P.PieElement = PieElement;
-    return PieElement;
-
-},{
-    requires : ["chart/element"]
-});
-/**
- * Formats the number according to the ‘format’ string;
- * adherses to the american number standard where a comma
- * is inserted after every 3 digits.
- *  note: there should be only 1 contiguous number in the format,
- * where a number consists of digits, period, and commas
- *        any other characters can be wrapped around this number, including ‘$’, ‘%’, or text
- *        examples (123456.789):
- *          ‘0 - (123456) show only digits, no precision
- *          ‘0.00 - (123456.78) show only digits, 2 precision
- *          ‘0.0000 - (123456.7890) show only digits, 4 precision
- *          ‘0,000 - (123,456) show comma and digits, no precision
- *          ‘0,000.00 - (123,456.78) show comma and digits, 2 precision
- *          ‘0,0.00 - (123,456.78) shortcut method, show comma and digits, 2 precision
- *
- * @method format
- * @param format {string} the way you would like to format this text
- * @return {string} the formatted number
- * @public
- */
-KISSY.add("chart/format", function(S) {
-    var format = function(that,format) {
+    var numberFormat = function(that,format) {
         if (typeof format !== "string") {
             return;
         } // sanity check
@@ -2305,195 +2577,34 @@ KISSY.add("chart/format", function(S) {
         return format.replace(/[\d,?\.?]+/, fnum);
     };
 
-    var chart=S.namespace("Chart");
-    chart.format=format;
 
-    return format;
-
-});
-KISSY.add("chart/frame",function(S){
-    var P = S.namespace("Chart");
-
-    /**
-     * The Border Layer
-     */
-    function Frame(data,cfg){
-        this.data = data;
-        this.path = new P.RectPath(
-                        cfg.paddingLeft,
-                        cfg.paddingTop,
-                        cfg.width - cfg.paddingRight - cfg.paddingLeft,
-                        cfg.height - cfg.paddingBottom - cfg.paddingTop
-                    );
-    }
-    S.augment(Frame,{
-        draw : function(ctx,cfg){
-            ctx.save();
-            ctx.strokeStyle = this.data.config.frameColor;
-            ctx.lineWidth = 2.0;
-            this.path.draw(ctx);
-            ctx.stroke();
-            ctx.restore();
-        }
-    });
-    P.Frame = Frame;
-    return Frame;
-});
-KISSY.add("chart/path",function(S){
-    var ie = S.UA.ie,
-        P = S.namespace("Chart");
-
-    function Path(x,y,w,h){ }
-    S.augment(Path,{
-        /**
-         * get the path draw
-         */
-        draw : function(ctx){ },
-        /**
-         * get the path draw
-         */
-        inpath : function(ox,oy,ctx){ }
-    });
-
-    function RectPath(x,y,w,h){
-        this.rect = {x:x,y:y,w:w,h:h};
+    
+    function Anim(duration,easing){
+        this.duration = duration*1000;
+        this.fnEasing = S.isString(easing) ? S.Easing[easing] : easing;
     }
 
-    S.extend(RectPath, Path, {
-        draw : function(ctx){
-            var r = this.rect;
-            ctx.beginPath();
-            ctx.rect(r.x,r.y,r.w,r.h);
+    S.augment(Anim, {
+
+        init : function () {
+            this.start = new Date().getTime();
+            this.finish = this.start + this.duration;
         },
-        inpath : function(ox,oy,ctx){
-            var r = this.rect,
-                left = r.x,
-                top = r.y,
-                right = left + r.w,
-                bottom = top + r.h,
-                detect = ox > left && ox < right && oy > top && oy < bottom;
-            return detect;
+
+        get : function () {
+            var now = new Date().getTime(),k;
+            if(now > this.finish) {
+                return 1;
+            }
+            k = (now - this.start)/this.duration;
+            return this.fnEasing(k);
         }
     });
 
-    function ArcPath(x,y,r,b,e,a){
-        this._arc= {x:x,y:y,r:r,b:b,e:e,a:a};
-    }
-    S.extend(ArcPath, Path, {
-        draw : function(ctx){
-            var r = this._arc;
-            ctx.beginPath();
-            ctx.moveTo(r,x,r.y);
-            ctx.arc(r.x,r.y,r.r,r.b,r.e,r.a);
-            ctx.closePath();
-        },
-        /**
-         * detect if point(ox,oy) in path
-         */
-        inpath : function(ox,oy,ctx){
-            if(ctx){
-                this.draw(ctx);
-                return ctx.isPointInPath(ox,oy);
-            }
-            var r = this._arc,
-                dx = ox - r.x,
-                dy = ox - r.y,
-                incircle = (Math.pow(dx, 2) + Math.pow(dy, 2))<= Math.pow(r.r, 2),
-                detect;
-            if(!incircle) {
-                return false;
-            }
-            if(dx === 0){
-                if(dy === 0){
-                    return false;
-                }else{
-                    da = dy>0?Math.PI/2:Math.PI*1.5;
-                }
-            }else{
-                //TODO
-            }
-
-            return detect;
-        }
-    });
-
-    P.Path = Path;
-    P.RectPath = RectPath;
-    P.ArcPath = ArcPath;
     return {
-        Path:Path,
-        RectPath:RectPath,
-        ArcPath:ArcPath
+        Color : Color,
+        numberFormat : numberFormat,
+        Anim : Anim
     };
 });
-KISSY.add("chart/simpletooltip",function(S){
-    var P     = S.namespace("Chart"),
-        Dom   = S.DOM,
-        Event = S.Event;
 
-    /**
-     * 工具提示，总是跟随鼠标
-     */
-    function SimpleTooltip(){
-        var self = this;
-        this.el_c = Dom.create("<div class='ks-chart-tooltip'>");
-        this.n_c = S.one(this.el_c);
-        this._offset = {left:0,top:0}
-        this.hide();
-
-        S.ready(function(){
-            document.body.appendChild(self.el_c);
-        });
-
-        Event.on(document.body,"mousedown",this._mousemove, this);
-        Event.on(document.body,"mousemove",this._mousemove, this);
-    }
-
-    S.augment(SimpleTooltip,{
-        _mousemove : function(ev){
-            var ttx = ev.pageX;
-            var tty = ev.pageY;
-            if(this._show){
-                this._updateOffset(ttx, tty);
-            }else{
-                //save the position
-                this._offset.left = ttx;
-                this._offset.top = tty;
-            }
-        },
-        _updateOffset : function(x,y){
-            if(x > Dom.scrollLeft() + Dom.viewportWidth() - 100){
-                x -= this.n_c.width() + 6;
-            }
-            if(y > Dom.scrollTop() + Dom.viewportHeight() - 100){
-                y -= this.n_c.height() + 20;
-            }
-            this.n_c.offset({left:x, top:y+12});
-        },
-        /**
-         * show the tooltip
-         * @param {String} the message to show
-         */
-        show : function(msg){
-            var self = this;
-            this._show = true;
-            this.n_c
-                .html(msg)
-                .css("display","block")
-                .offset(this._offset)
-
-        },
-        /**
-         * hide the tooltip
-         */
-        hide : function(){
-            this._show = false;
-            this.n_c.css("display","none");
-        },
-
-        _init : function(){}
-    });
-
-    P.SimpleTooltip = SimpleTooltip;
-    return SimpleTooltip;
-});

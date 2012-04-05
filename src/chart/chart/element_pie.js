@@ -1,4 +1,4 @@
-KISSY.add(function (S, Util) {
+KISSY.add('chart/element_pie', function (S, Util) {
     var MOUSE_LEAVE = "mouse_leave",
         MOUSE_MOVE = "mouse_move";
 
@@ -247,5 +247,5 @@ KISSY.add(function (S, Util) {
     return PieElement;
 
 },{
-    requires : ["./util"]
+    requires : ["chart/util"]
 });

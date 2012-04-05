@@ -25,5 +25,5 @@ KISSY.add("chart/frame",function(S, Path){
 
     return Frame;
 }, {
-    requires : ['./path']
+    requires : ['chart/path']
 });

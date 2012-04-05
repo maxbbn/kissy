@@ -1,4 +1,4 @@
-KISSY.add(function(S, PieElement, BarElement, LineElement){
+KISSY.add('chart/element', function(S, PieElement, BarElement, LineElement){
 
     /*
      * 图表类型基础类
@@ -86,15 +86,11 @@ KISSY.add(function(S, PieElement, BarElement, LineElement){
         /*
          * 绘图  
          */
-        draw : function(ctx,cfg){},
-        /*
-         * 解除事件绑定  
-         */
-        getTooltip : function(index){}
+        draw : function(ctx,cfg){}
     });
 
     return Element;
 
 }, {
-    requires : ['./element_pie', './element_bar', './element_line']
+    requires : ['chart/element_pie', 'chart/element_bar', 'chart/element_line']
 });

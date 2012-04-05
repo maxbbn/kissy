@@ -1,4 +1,4 @@
-KISSY.add(function(S, Path) { 
+KISSY.add('chart/axis', function(S, Path) { 
     var Event = S.Event,
         LINE = 'line',
         BAR = 'bar';
@@ -168,7 +168,7 @@ KISSY.add(function(S, Path) {
                 }
             });
         },
-        //事件回调函数
+        
         chartMouseLeave : function(ev) {
             var self = this;
             self.current_x = -1;
@@ -315,5 +315,5 @@ KISSY.add(function(S, Path) {
     });
     return Axis;
 }, {
-    requires : ["./path"]
+    requires : ["chart/path"]
 });

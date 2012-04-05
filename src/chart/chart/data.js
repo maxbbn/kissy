@@ -1,4 +1,4 @@
-KISSY.add(function(S, Util){
+KISSY.add('chart/data', function(S, Util){
     /**
      * 图表默认配置
      */
@@ -347,5 +347,5 @@ KISSY.add(function(S, Util){
     return Data;
 
 }, {
-    requires : ["./util"]
+    requires : ["chart/util"]
 });

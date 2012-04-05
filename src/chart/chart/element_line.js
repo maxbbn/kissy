@@ -1,8 +1,8 @@
-KISSY.add(function(S, Util){
+KISSY.add('chart/element_line', function(S, Util) {
     /**
      * class Element for Line chart
      */
-    function LineElement(data,chart,drawcfg){
+    function LineElement(data,chart,drawcfg) {
         var self = this;
         self.chart = chart;
         self.data = data;
@@ -22,7 +22,7 @@ KISSY.add(function(S, Util){
         /**
          * 根据数据源，生成图形数据
          */
-        initdata : function(cfg){
+        initdata : function(cfg) {
             var self = this,
                 data = self.data,
                 elements = self.elements,
@@ -36,8 +36,8 @@ KISSY.add(function(S, Util){
             var items = [];
             self.items = items;
 
-            data.eachElement(function(elem,idx,idx2){
-                if(!items[idx]){
+            data.eachElement(function(elem,idx,idx2) {
+                if(!items[idx]) {
                     items[idx] = {
                         _points : [],
                         _labels : [],
@@ -60,7 +60,7 @@ KISSY.add(function(S, Util){
 
         },
 
-        draw : function(ctx,cfg){
+        draw : function(ctx,cfg) {
             var self = this,
                 data = self.data,
                 left = cfg.paddingLeft,
@@ -75,22 +75,22 @@ KISSY.add(function(S, Util){
                 k = self.anim.get(), gradiet;
 
 
-            if(data.config.showLabels){
+            if(data.config.showLabels) {
                 self.drawNames(ctx,cfg);
             }
 
             // the animation
-            if(k >= 1 && this._ready_idx < self.items.length -1){
+            if(k >= 1 && this._ready_idx < self.items.length -1) {
                 self._ready_idx ++;
                 self.anim.init();
                 k = self.anim.get();
             }
 
-            if(this._ready_idx !== data.elements().length-1 || k!==1){
+            if(this._ready_idx !== data.elements().length-1 || k!==1) {
                 this.fire("redraw");
             }
 
-            S.each(self.items,function(linecfg,idx){
+            S.each(self.items,function(linecfg,idx) {
                 var p;
                 if (idx !== self._ready_idx) {
                     t = (idx > self._ready_idx)?0:1;
@@ -102,7 +102,7 @@ KISSY.add(function(S, Util){
                 points = linecfg._points;
 
                 //draw bg
-                if(linecfg._drawbg){
+                if(linecfg._drawbg) {
                     ctx.save();
                     ctx.globalAlpha = 0.4;
                     maxtop = bottom - (bottom - linecfg._maxtop) * t;
@@ -115,7 +115,7 @@ KISSY.add(function(S, Util){
                     ctx.beginPath();
                     ctx.moveTo(left,bottom);
 
-                    for(i = 0; i < points.length; i++){
+                    for(i = 0; i < points.length; i++) {
                         p = points[i];
                         ptop = bottom - (bottom - p.y)*t;
                         ctx.lineTo(p.x,ptop);
@@ -133,10 +133,10 @@ KISSY.add(function(S, Util){
                 ctx.strokeStyle = color;
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                for(i = 0; i < l; i++){
+                for(i = 0; i < l; i++) {
                     p = points[i];
                     ptop = bottom - (bottom - p.y)*t;
-                    if(i===0){
+                    if(i===0) {
                         ctx.moveTo(p.x,ptop);
                     } else {
                         ctx.lineTo(p.x,ptop);
@@ -147,7 +147,7 @@ KISSY.add(function(S, Util){
 
                 //draw point
                 ctx.save();
-                for(i = 0; i < l; i++){
+                for(i = 0; i < l; i++) {
                     p = points[i];
                     ptop = bottom - (bottom - p.y)*t;
                     //circle outter
@@ -157,7 +157,7 @@ KISSY.add(function(S, Util){
                     ctx.closePath();
                     ctx.fill();
                     //circle innner
-                    if(i !== self._current){
+                    if(i !== self._current) {
                         ctx.fillStyle = "#fff";
                         ctx.beginPath();
                         ctx.arc(p.x,ptop,3,0,Math.PI*2,true);
@@ -169,20 +169,20 @@ KISSY.add(function(S, Util){
             });
         },
 
-        init : function(){
+        init : function() {
             this._ready_idx = 0;
             this.chart.on("axishover",this._axis_hover,this);
             this.chart.on("axisleave",this._axis_leave,this);
         },
 
-        destory : function(){
+        destory : function() {
             this.chart.detach("axishover",this._axis_hover);
             this.chart.detach("axisleave",this._axis_leave);
         },
 
-        _axis_hover : function(e){
+        _axis_hover : function(e) {
             var idx = e.index;
-            if(this._current !== idx){
+            if(this._current !== idx) {
                 this._current = idx;
                 this.fire("redraw");
                 this.fire("showtooltip",{
@@ -191,7 +191,7 @@ KISSY.add(function(S, Util){
             }
         },
 
-        _axis_leave : function(e){
+        _axis_leave : function(e) {
             this._current = -1;
             this.fire("redraw");
         },
@@ -199,10 +199,10 @@ KISSY.add(function(S, Util){
          * get tip HTML by id
          * @return {String}
          **/
-        getTooltip : function(index){
+        getTooltip : function(index) {
             var self = this, ul, li;
             ul= "<ul>";
-            S.each(self.items, function(item,idx){
+            S.each(self.items, function(item,idx) {
                 li = "<li><p style='color:" + item._color + "'>" +
                         item._labels[index] +
                     "</p></li>";
@@ -211,7 +211,7 @@ KISSY.add(function(S, Util){
             ul += "</ul>";
             return ul;
         },
-        drawNames : function(ctx){
+        drawNames : function(ctx) {
             var self = this,
                 cfg = self.drawcfg,
                 data = self.data.elements(),
@@ -222,9 +222,9 @@ KISSY.add(function(S, Util){
                 d,
                 c;
 
-            for(; i>=0; i--){
+            for(; i>=0; i--) {
                 d = data[i];
-                if(d.notdraw){
+                if(d.notdraw) {
                     continue;
                 }
                 c = self.data.getColor(i);
@@ -254,5 +254,5 @@ KISSY.add(function(S, Util){
     return LineElement;
 },
 {
-    requires : ["./util"]
+    requires : ["chart/util"]
 });

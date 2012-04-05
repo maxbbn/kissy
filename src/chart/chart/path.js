@@ -1,4 +1,4 @@
-KISSY.add(function(S){
+KISSY.add('chart/path',function(S){
     var ie = S.UA.ie;
 
     function Path(x,y,w,h){ }

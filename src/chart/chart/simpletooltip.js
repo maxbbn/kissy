@@ -1,39 +1,39 @@
-KISSY.add("chart/simpletooltip",function(S){
-    var P     = S.namespace("Chart"),
-        Dom   = S.DOM,
-        Event = S.Event;
+KISSY.add('chart/simpletooltip', function(S){
 
     /**
      * 工具提示，总是跟随鼠标
      */
     function SimpleTooltip(){
         var self = this;
-        this.el_c = Dom.create("<div class='ks-chart-tooltip'>");
-        this.n_c = S.one(this.el_c);
-        this._offset = {left:0,top:0}
-        this.hide();
+        self.n_c = S.all("<div class='ks-chart-tooltip'>");
+        self._offset = {left:0,top:0}
+        self.hide();
 
         S.ready(function(){
-            document.body.appendChild(self.el_c);
+            S.one('body')
+                .append(self.n_c)
+                .on("mousemove", self._mousemove, self);
         });
 
-        Event.on(document.body,"mousedown",this._mousemove, this);
-        Event.on(document.body,"mousemove",this._mousemove, this);
     }
 
     S.augment(SimpleTooltip,{
         _mousemove : function(ev){
-            var ttx = ev.pageX;
-            var tty = ev.pageY;
-            if(this._show){
-                this._updateOffset(ttx, tty);
+            var self = this,
+                ttx = ev.pageX,
+                tty = ev.pageY;
+            if(self._show){
+                self._updateOffset(ttx, tty);
             }else{
                 //save the position
-                this._offset.left = ttx;
-                this._offset.top = tty;
+                self._offset.left = ttx;
+                self._offset.top = tty;
             }
         },
+
         _updateOffset : function(x,y){
+            var Dom = S.DOM;
+
             if(x > Dom.scrollLeft() + Dom.viewportWidth() - 100){
                 x -= this.n_c.width() + 6;
             }
@@ -47,25 +47,27 @@ KISSY.add("chart/simpletooltip",function(S){
          * @param {String} the message to show
          */
         show : function(msg){
+            // console.log('show')
             var self = this;
-            this._show = true;
-            this.n_c
+            self._show = true;
+
+            self.n_c
                 .html(msg)
                 .css("display","block")
-                //.offset(this._offset)
 
         },
         /**
          * hide the tooltip
          */
         hide : function(){
-            this._show = false;
-            this.n_c.css("display","none");
+            // console.log('hide')
+            var self = this;
+            self._show = false;
+            self.n_c.css("display","none");
         },
 
         _init : function(){}
     });
 
-    P.SimpleTooltip = SimpleTooltip;
     return SimpleTooltip;
 });

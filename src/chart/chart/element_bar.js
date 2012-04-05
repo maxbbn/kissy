@@ -1,4 +1,4 @@
-KISSY.add(function (S, Util, Path) {
+KISSY.add('chart/element_bar', function (S, Util, Path) {
     var MOUSE_LEAVE = "mouse_leave",
         MOUSE_MOVE = "mouse_move";
 
@@ -243,5 +243,5 @@ KISSY.add(function (S, Util, Path) {
 
     return BarElement;
 },{
-    requires : ["./util", "./path"]
+    requires : ["chart/util", "chart/path"]
 });

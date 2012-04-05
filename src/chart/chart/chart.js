@@ -1,47 +1,155 @@
-KISSY.add("chart/chart", function(S, Util, Data, Axis, Frame, SimpleTooltip, Element) {
-    var Event = S.Event,
-        Dom = S.DOM;
-
-
+KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, Element) {
     /**
      * 图表默认配置
      */
     var defaultCfg = {
-        'left' : 40,
-        'top'  : 40
-    };
+            'left' : 40,
+            'top'  : 40
+        },
+
+        chartManger,
+
+        /**
+         * Event Mouse leave
+         */
+
+        MOUSE_LEAVE = "mouse_leave",
+
+        /**
+         * Event Mouse move
+         */
+        MOUSE_MOVE = "mouse_move";
+    /**
+     * 图表实例管理器，在这里，对图表间公用的资源进行管理
+     * @constructor
+     */
+    function ChartManager () {
+        var self = this;
+        self.list = [];
+        self.current_index = -1;
+        self.init();
+    }
+
+    S.augment(ChartManager, S.EventTarget, {
+        /**
+         * 添加图表实例
+         * @param {Chart} chart 新建的图表
+         */
+        add : function (chart) {
+            var self = this,
+                index;
+
+            self.list.push(chart);
+            index = self.list.length - 1;
+            chart
+                .on('active', function (ev) {
+                    if (self.current_index!== index) {
+                        self.fire('focusChange');
+                    }
+                    self.current_index = index;
+                });
+        }, 
+        /**
+         * 从管理器删除图表
+         * @param  {Chart} chart 要删除的图表
+         * @return {[type]}       [description]
+         */
+        remove : function (chart) {
+            chart.detach('mouseenter');
+
+            S.each(self.list, function (c, index) {
+                if (c === index) {
+                    self.list[index] = null;
+                }
+            });
+        },
+
+        /**
+         * 获取ToolTip 对象
+         * @return {SimpleTooltip} 所有图表共享一个Tooltip实例
+         */
+        getTooltip : function () {
+            if (!this.tooltip) {
+                this.tooltip = new SimpleTooltip();
+            }
+            return this.tooltip;
+        },
+
+
+        /**
+         * init the manager
+         * @return {ChartManager} 链式调用
+         */
+        init : function () {
+            var self = this;
+            S.one('body')
+                .on('mousemove', self._bodyMouseMove, self);
+            return self;
+        },
+
+        /**
+         * 鼠标move时间处理
+         * @param  {Event} ev 事件对象
+         */
+        _bodyMouseMove : function (ev) {
+            var self = this,
+                chart,
+                ox,
+                oy;
+
+            if (self.current_index > -1) {
+                chart = self.list[self.current_index];
+            }
+
+            if (!chart) {
+                return
+            }
+            
+            ox = ev.pageX - chart.offset.left;
+            oy = ev.pageY - chart.offset.top;
+
+            if (ox > 0 && ox < chart.width && oy > 0 && oy < chart.height) {
+                chart.fire(MOUSE_MOVE, 
+                    { 
+                        x:ox,
+                        y:oy
+                    }
+                );
+            } else {
+                chart.fire(MOUSE_LEAVE);
+            }
+        }
+     });
+
+    
 
     /**
      * class Chart
      * @constructor
-     * @param {String|Object} canvas HTMLElement
+     * @param {String|Object} canvas HTML   Element
      * @param {String|Object} data of canvas
      */
     function Chart(canvas, data) {
         if (!(this instanceof Chart)) return new Chart(canvas, data);
-
-        var elCanvas = this.elCanvas = Dom.get(canvas)
-
-        if(!elCanvas) return;
-
         var self = this,
-            width = elCanvas.width,
-            height = elCanvas.height;
+            elCanvas = this.elCanvas = S.one(canvas);
 
+        if (!elCanvas) return;
+
+        
+        self.width = parseInt(elCanvas.attr('width'), 10),
+        self.height = parseInt(elCanvas.attr('height'), 10);
         self.elCanvas = elCanvas;
-        self.width = width;
-        self.height = height;
         self.ctx = -1;
+        self.tooltip = chartManager.getTooltip();
 
-        self.tooltip = Chart.getTooltip();
-        self._chartAnim = new Util.Anim(0.3, "easeIn");
-        if(data){
+        if (data) {
             self.data = data;
             self._initContext();
         }
 
+        chartManager.add(this);
     }
-
 
     S.extend(Chart, S.Base, /**@lends Chart.prototype*/ {
 
@@ -49,24 +157,24 @@ KISSY.add("chart/chart", function(S, Util, Data, Axis, Frame, SimpleTooltip, Ele
          * render form
          * @param {Object} the chart data
          */
-        render : function(data) {
+        render : function (data) {
             var self = this;
 
             // ensure we have got context here
-            if(self.ctx == -1){
+            if (self.ctx == -1) {
                 self.data = data;
                 self._initContext();
                 return;
             }
 
             //wait... context to init
-            if(self.ctx === 0){
+            if (self.ctx === 0) {
                 self.data = data;
                 return;
             }
 
             self._data = new Data(data);
-            if(!self._data) return;
+            if (!self._data) return;
             data = self._data;
 
             self.initChart();
@@ -98,15 +206,15 @@ KISSY.add("chart/chart", function(S, Util, Data, Axis, Frame, SimpleTooltip, Ele
             // 设置背景
             var gra = self.ctx.createLinearGradient(0,0,0,self.height);
             self.backgroundFillStyle = null;
-            if(config.backgroundStyle && typeof config.backgroundStyle === "object"){
+            if (config.backgroundStyle && typeof config.backgroundStyle === "object") {
                 gra.addColorStop(0, config.backgroundStyle.start);
                 gra.addColorStop(1, config.backgroundStyle.end);
                 self.backgroundFillStyle = gra;
-            }else if(S.isString(config.backgroundStyle)){
+            }else if (S.isString(config.backgroundStyle)) {
                 self.backgroundFillStyle = config.backgroundStyle;
             }
 
-            setTimeout(function() {
+            setTimeout(function () {
                 self._redraw();
                 self.initEvent();
             }, 100);
@@ -115,28 +223,29 @@ KISSY.add("chart/chart", function(S, Util, Data, Axis, Frame, SimpleTooltip, Ele
          * init Canvas Context
          * @private
          */
-        _initContext : function(){
+        _initContext : function () {
             var self = this;
-            if(typeof self.ctx == 'object') return;
-
-            if(self.elCanvas.getContext){
+            if (typeof self.ctx == 'object') return;
+ 
+            if (self.elCanvas[0].getContext) {
                 //flashcanvas初始化需要时间
-                setTimeout(function(){
-                    self.ctx = self.elCanvas.getContext('2d');
+                setTimeout(function () {
+                    self.ctx = self.elCanvas[0].getContext('2d');
                     self._contextReady();
-                }, 150);
-            }else{
-                //this is for gaving flashCanvas has the time to init canvas
+                }, 0);
+
+            } else {
+                // wait for  flashCanvas to init canvas
                 self.ctx = 0;
-                self._count = (typeof self._count == "number") ? self._count-1 : 30;
-                if(self._count >= 0){
-                    setTimeout(function ctx(){
+                self._count = (typeof self._count == "number") ? self._count - 1 : 30;
+                if (self._count >= 0) {
+                    setTimeout(function ctx() {
                         self._initContext();
-                    },150)
-                }else{
+                    }, 50);
+                } else {
                     //糟了，你的浏览器还不支持我们的图表
-                    var text = Dom.create("<p class='ks-chart-error' > \u7cdf\u4e86\uff0c\u4f60\u7684\u6d4f\u89c8\u5668\u8fd8\u4e0d\u652f\u6301\u6211\u4eec\u7684\u56fe\u8868</p>");
-                    Dom.insertAfter(text,self.elCanvas)
+                    var text = S.one("<p class='ks-chart-error' > \u7cdf\u4e86\uff0c\u4f60\u7684\u6d4f\u89c8\u5668\u8fd8\u4e0d\u652f\u6301\u6211\u4eec\u7684\u56fe\u8868</p>");
+                    text.insertAfter(self.elCanvas);
                 }
             }
         },
@@ -145,9 +254,9 @@ KISSY.add("chart/chart", function(S, Util, Data, Axis, Frame, SimpleTooltip, Ele
          * execute when the ctx is ready
          * @private
          */
-        _contextReady : function(){
+        _contextReady : function () {
             var self = this;
-            if(self.data){
+            if (self.data) {
                 self.render(self.data);
            }
         },
@@ -155,14 +264,14 @@ KISSY.add("chart/chart", function(S, Util, Data, Axis, Frame, SimpleTooltip, Ele
         /**
          * show the loading text
          */
-        loading : function() {
+        loading : function () {
             this.showMessage("\u8F7D\u5165\u4E2D...");
         },
 
         /**
          * show text
          */
-        showMessage : function(m) {
+        showMessage : function (m) {
             var ctx = this.ctx,
                 tx = this.width / 2,
                 ty = this.height / 2;
@@ -180,98 +289,100 @@ KISSY.add("chart/chart", function(S, Util, Data, Axis, Frame, SimpleTooltip, Ele
          * this will remove all the event
          * @private
          */
-        initChart : function() {
+        initChart : function () {
             var self = this;
-            self._chartAnim.init();
             self.layers = [];
             self._updateOffset();
             self.loading();
 
-            S.each([self.element,self.axis], function(item) {
+            S.each([self.element,self.axis], function (item) {
                 if (item) {
                     item.destory();
-                    Event.remove(item);
+                    item.detach();
                 }
             });
 
             self.element = null;
             self.axis = null;
             if (self._event_inited) {
-                Event.remove(self.elCanvas, "mousemove", self._mousemoveHandle);
-                Event.remove(self.elCanvas, "mouseenter", self._mouseenterHandle);
-                Event.remove(self.elCanvas, "mouseleave", self._mouseLeaveHandle);
-                Event.remove(self, Chart.MOUSE_LEAVE, self._drawAreaLeave);
+                self.elCanvas
+                    // .detach("mousemove", self._mousemoveHandle)
+                    .detach("mouseenter", self._mouseenterHandle)
+                    .detach("mouseleave", self._mouseLeaveHandle)
+                
+
+                self.detach();
             }
+
             self.tooltip.hide();
         },
 
-        initEvent : function() {
+
+
+        initEvent : function () {
             var self = this;
 
             self._event_inited = true;
 
-            Event.on(self.elCanvas, "mousemove", self._mousemoveHandle, self);
-            Event.on(self.elCanvas, "mouseenter", self._mouseenterHandle,self);
-            Event.on(self.elCanvas, "mouseleave", self._mouseLeaveHandle, self);
-            Event.on(self, Chart.MOUSE_LEAVE, self._drawAreaLeave, self);
+            self.elCanvas
+                // .on("mousemove", self._mousemoveHandle, self)
+                .on("mouseenter", self._mouseenterHandle, self)
+                .on("mouseleave", self._mouseLeaveHandle, self);
 
-            if (self.type === "bar") {
-                Event.on(self.element, "barhover", self._barHover, self);
-            }
+            self.on(MOUSE_LEAVE, self._drawAreaLeave, self);
 
             if (self.axis) {
-                Event.on(self.axis, "xaxishover", self._xAxisHover, self);
-                Event.on(self.axis, "leave", self._xAxisLeave, self);
-                Event.on(self.axis, "redraw", self._redraw, self);
+                self.axis
+                    .on("xaxishover", self._xAxisHover, self)
+                    .on("leave", self._xAxisLeave, self)
+                    .on("redraw", self._redraw, self);
             }
 
-            Event.on(self.element, "redraw", self._redraw, self);
+            self.element
+                .on("redraw", self._redraw, self)
+                .on("showtooltip", function (ev) {
+                    var msg = S.isString(ev.message) ? ev.message : ev.message.innerHTML;
+                    self.tooltip.show(msg);
+                })
+                .on("hidetooltip", function (ev) {
+                    self.tooltip.hide();
+                });
 
-            Event.on(self.element, "showtooltip", function(e) {
-                var msg = S.isString(e.message)?e.message:e.message.innerHTML;
-                self.tooltip.show(msg);
-            });
-
-            Event.on(self.element, "hidetooltip", function(e) {
-                self.tooltip.hide();
-            });
         },
 
         /**
          * draw all layers
          * @private
          */
-        draw : function() {
+        draw : function () {
             var self = this,
                 ctx = self.ctx,
-                k = self._chartAnim.get(),
                 size = self._drawcfg;
 
-            ctx.save();
-            ctx.globalAlpha = k;
-            if(self.backgroundFillStyle){
+            //ctx.save();
+            //ctx.globalAlpha = k;
+            if (self.backgroundFillStyle) {
                 ctx.fillStyle = self.backgroundFillStyle;
-                ctx.fillRect(0,0,size.width,size.height);
+                ctx.fillRect(0, 0, size.width, size.height);
             }else{
-                ctx.clearRect(0,0,size.width,size.height);
+                ctx.clearRect(0, 0, size.width, size.height);
             }
-            S.each(self.layers, function(e, i) {
+
+            S.each(self.layers, function (e, i) {
                 e.draw(ctx, size);
             });
-            ctx.restore();
-
-            if (k < 1) {
-                this._redraw();
-            }
+            //ctx.restore();
         },
+
         /**
          * Get The Draw Context of Canvas
+         * @return {CanvasContext} the context Object 
          */
-        ctx : function(){
-            if(this.ctx) {
+        ctx : function () {
+            if (this.ctx) {
                 return this.ctx;
             }
-            if(this.elCanvas.getContext){
+            if (this.elCanvas[0].getContext) {
                 this.ctx = this.elCanvas.getContext('2d');
                 return this.ctx;
             }else{
@@ -282,7 +393,7 @@ KISSY.add("chart/chart", function(S, Util, Data, Axis, Frame, SimpleTooltip, Ele
          * redraw the layers
          * @private
          */
-        _redraw : function() {
+        _redraw : function () {
             this._redrawmark = true;
             if (!this._running) {
                 this._run();
@@ -292,7 +403,7 @@ KISSY.add("chart/chart", function(S, Util, Data, Axis, Frame, SimpleTooltip, Ele
          * run the Timer
          * @private
          */
-        _run : function() {
+        _run : function () {
             var self = this;
             clearTimeout(self._timeoutid);
             self._running = true;
@@ -306,17 +417,12 @@ KISSY.add("chart/chart", function(S, Util, Data, Axis, Frame, SimpleTooltip, Ele
                 }
             }, 1000 / 24);
         },
+        
         /**
          * event handler
          * @private
          */
-        _barHover : function(ev) {
-        },
-        /**
-         * event handler
-         * @private
-         */
-        _xAxisLeave : function(ev) {
+        _xAxisLeave : function (ev) {
             //this._redraw();
             this.fire("axisleave");
         },
@@ -324,7 +430,7 @@ KISSY.add("chart/chart", function(S, Util, Data, Axis, Frame, SimpleTooltip, Ele
          * event handler
          * @private
          */
-        _xAxisHover : function(ev) {
+        _xAxisHover : function (ev) {
             this.fire("axishover", {
                 index : ev.index,
                 x : ev.x
@@ -335,31 +441,18 @@ KISSY.add("chart/chart", function(S, Util, Data, Axis, Frame, SimpleTooltip, Ele
          * event handler
          * @private
          */
-        _drawAreaLeave : function(ev) {
+        _drawAreaLeave : function (ev) {
             this.tooltip.hide();
         },
-        /**
-         * event handler
-         * @private
-         */
-        _mousemoveHandle : function(e) {
-            var ox = e.pageX - this.offset.left,
-                oy = e.pageY - this.offset.top;
-
-
-            if(this._frame && this._frame.path && this._frame.path.inpath(ox,oy) || !this._frame){
-                this.fire(Chart.MOUSE_MOVE, {x:ox,y:oy});
-            }else{
-                this.fire(Chart.MOUSE_LEAVE);
-            }
-        },
-
         /**
          * event handle
          * @private
          */
-        _mouseenterHandle : function(e){
+        _mouseenterHandle : function (e) {
+            var self = this;
             this._updateOffset();
+            self.fire('active')
+            
         },
 
         /**
@@ -367,57 +460,35 @@ KISSY.add("chart/chart", function(S, Util, Data, Axis, Frame, SimpleTooltip, Ele
          * @private
          * @return {Object} offset of canvas element
          */
-        _updateOffset : function(){
-            this.offset = Dom.offset(this.elCanvas);
+        _updateOffset : function () {
+            this.offset = this.elCanvas.offset();
             return this.offset;
         },
         /**
          * event handler
          * @private
          */
-        _mouseLeaveHandle : function(ev) {
+        _mouseLeaveHandle : function (ev) {
             var self = this,
                 tooltip = self.tooltip;
 
-            var rel = ev.relatedTarget;
+            self.fire(MOUSE_LEAVE);
 
-            if(rel && (rel === tooltip.n_c[0] || tooltip.n_c.contains(rel))){
-                return;
-            }
-            this.fire(Chart.MOUSE_LEAVE);
         }
-    },
-    /**@lends Chart*/
-    {
-        /**
-         * 获取ToolTip 对象， 所有图表共享一个Tooltip实例
-         */
-        getTooltip : function () {
-            if (!Chart.tooltip) {
-                Chart.tooltip = new SimpleTooltip();
-            }
-            return Chart.tooltip;
-        },
-        /**
-         * Event Mouse leave
-         */
-        MOUSE_LEAVE : "mouse_leave",
-
-        /**
-         * Event Mouse move
-         */
-        MOUSE_MOVE : "mouse_move"
     });
 
     /*export*/
+    chartManager = window.chartManager = new ChartManager();
+    S.Chart = Chart;
     return Chart;
+
 }, {
     requires:[
-        './util',
-        './data',
-        './axis',
-        './frame',
-        './simpletooltip',
-        './element'
+        'chart/util',
+        'chart/data',
+        'chart/axis',
+        'chart/frame',
+        'chart/simpletooltip',
+        'chart/element'
     ]
 });

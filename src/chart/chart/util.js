@@ -2,7 +2,7 @@
 
 
 /*! @source http://purl.eligrey.com/github/color.js/blob/master/color.js*/
-KISSY.add(function(S) {
+KISSY.add('chart/util', function(S) {
     /*
      * color.js
      * Version 0.2.1.2
