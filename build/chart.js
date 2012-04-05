@@ -1,7 +1,7 @@
 ﻿/*
 Copyright 2012, KISSY UI Library v1.30dev
 MIT Licensed
-build time: Apr 5 12:56
+build time: Apr 5 17:13
 */
 KISSY.add('chart/axis', function(S, Path) { 
     var Event = S.Event,
@@ -155,7 +155,7 @@ KISSY.add('chart/axis', function(S, Path) {
          * 解除事件绑定
          */
         destory : function() {
-            if (this.type === ATYPE.LINE) {
+            if (this.type === LINE) {
                 Event.remove(this.chart, "mouse_move", this.chartMouseMove);
                 Event.remove(this.chart, "mouse_leave", this.chartMouseLeave);
             }
@@ -412,7 +412,7 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
         },
 
         /**
-         * 鼠标move时间处理
+         * 鼠标move事件处理共享
          * @param  {Event} ev 事件对象
          */
         _bodyMouseMove : function (ev) {
@@ -567,8 +567,8 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
                         self._initContext();
                     }, 50);
                 } else {
-                    //糟了，你的浏览器还不支持我们的图表
-                    var text = S.one("<p class='ks-chart-error' > \u7cdf\u4e86\uff0c\u4f60\u7684\u6d4f\u89c8\u5668\u8fd8\u4e0d\u652f\u6301\u6211\u4eec\u7684\u56fe\u8868</p>");
+                    //提示文案：糟了，你的浏览器还不支持我们的图表
+                    var text = S.one("<p class='ks-chart-error' >\u7cdf\u4e86\uff0c\u4f60\u7684\u6d4f\u89c8\u5668\u8fd8\u4e0d\u652f\u6301\u6211\u4eec\u7684\u56fe\u8868</p>");
                     text.insertAfter(self.elCanvas);
                 }
             }
@@ -589,13 +589,15 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
          * show the loading text
          */
         loading : function () {
+            //提示文案 载入中
             this.showMessage("\u8F7D\u5165\u4E2D...");
         },
 
         /**
          * show text
+         * @param {String} msg 文案
          */
-        showMessage : function (m) {
+        showMessage : function (msg) {
             var ctx = this.ctx,
                 tx = this.width / 2,
                 ty = this.height / 2;
@@ -604,7 +606,7 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
             ctx.font = "12px Arial";
             ctx.textAlign = "center";
             ctx.fillStyle = "#808080";
-            ctx.fillText(m, tx, ty);
+            ctx.fillText(msg, tx, ty);
             ctx.restore();
         },
 
@@ -642,7 +644,9 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
         },
 
 
-
+        /**
+         * 初始化图表事件
+         */
         initEvent : function () {
             var self = this;
 
