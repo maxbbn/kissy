@@ -315,7 +315,7 @@ KISSY.add('chart/data', function(S, Util){
 
                 //统计最大值
                 if (idx === 0 && (!idx2)) self._max = elem.data || 0;
-                elem.data = S.isNumber(elem.data) ? elem.data : 0 ;
+                elem.data = S.isNumber(elem.data) ? elem.data : null ;
                 self._max = Math.max(self._max, elem.data);
 
                 
@@ -336,7 +336,7 @@ KISSY.add('chart/data', function(S, Util){
                 elem.label = S.substitute(
                     label, {
                         name : elem.name,
-                        data : elem.format ? Util.numberFormat(elem.data, elem.format) : elem.data
+                        data : elem.format && typeof elem.data === 'number' ? Util.numberFormat(elem.data, elem.format) : elem.data
                     }
                 );
 

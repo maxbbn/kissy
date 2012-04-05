@@ -33,6 +33,7 @@ KISSY.add('chart/element_line', function(S, Util) {
                 width = cfg.width - cfg.paddingRight - left,
                 gap = width/(ml-1),
                 maxtop, i,j;
+
             var items = [];
             self.items = items;
 
@@ -53,6 +54,7 @@ KISSY.add('chart/element_line', function(S, Util) {
                 element._points[idx2] = {
                     x : left + gap*idx2,
                     y : ptop,
+                    nodata : elem.data === null, 
                     bottom : bottom
                 };
 
@@ -90,7 +92,7 @@ KISSY.add('chart/element_line', function(S, Util) {
                 this.fire("redraw");
             }
 
-            S.each(self.items,function(linecfg,idx) {
+            S.each(self.items, function(linecfg,idx) {
                 var p;
                 if (idx !== self._ready_idx) {
                     t = (idx > self._ready_idx)?0:1;
@@ -135,6 +137,7 @@ KISSY.add('chart/element_line', function(S, Util) {
                 ctx.beginPath();
                 for(i = 0; i < l; i++) {
                     p = points[i];
+                    if (p.nodata) continue;
                     ptop = bottom - (bottom - p.y)*t;
                     if(i===0) {
                         ctx.moveTo(p.x,ptop);
@@ -149,6 +152,7 @@ KISSY.add('chart/element_line', function(S, Util) {
                 ctx.save();
                 for(i = 0; i < l; i++) {
                     p = points[i];
+                    if (p.nodata) continue;
                     ptop = bottom - (bottom - p.y)*t;
                     //circle outter
                     ctx.fillStyle = color;
@@ -203,14 +207,18 @@ KISSY.add('chart/element_line', function(S, Util) {
             var self = this, ul, li;
             ul= "<ul>";
             S.each(self.items, function(item,idx) {
+                if (item._points[index].nodata) {
+                    return;
+                }
                 li = "<li><p style='color:" + item._color + "'>" +
                         item._labels[index] +
                     "</p></li>";
-                ul += li
+                ul += li;
             });
             ul += "</ul>";
             return ul;
         },
+
         drawNames : function(ctx) {
             var self = this,
                 cfg = self.drawcfg,
