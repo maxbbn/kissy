@@ -150,7 +150,7 @@ KISSY.add('chart/axis', function(S, Path) {
          * 解除事件绑定
          */
         destory : function() {
-            if (this.type === ATYPE.LINE) {
+            if (this.type === LINE) {
                 Event.remove(this.chart, "mouse_move", this.chartMouseMove);
                 Event.remove(this.chart, "mouse_leave", this.chartMouseLeave);
             }
