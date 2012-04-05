@@ -1,7 +1,7 @@
 ﻿/*
 Copyright 2012, KISSY UI Library v1.30dev
 MIT Licensed
-build time: Apr 5 17:13
+build time: Apr 5 19:12
 */
 KISSY.add('chart/axis', function(S, Path) { 
     var Event = S.Event,
@@ -205,7 +205,6 @@ KISSY.add('chart/axis', function(S, Path) {
                 //draw even bg
                 if (i % 2 === 1 && i > 0) {
                     ctx.save();
-                    ctx.globalAlpha = .3;
                     ctx.fillStyle = config.axisBackgroundColor;
                     ctx.fillRect(
                         py.left,
@@ -852,7 +851,7 @@ KISSY.add('chart/data', function(S, Util){
         //坐标字体颜色
         axisTextColor : "#999",
         //坐标间隔背景颜色
-        axisBackgroundColor : "#EEE",
+        axisBackgroundColor : "rgba(238, 238, 238, 0.4)",
         //坐标线框颜色
         axisGridColor : "#e4e4e4",
         //Number Format

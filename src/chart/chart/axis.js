@@ -200,7 +200,6 @@ KISSY.add('chart/axis', function(S, Path) {
                 //draw even bg
                 if (i % 2 === 1 && i > 0) {
                     ctx.save();
-                    ctx.globalAlpha = .3;
                     ctx.fillStyle = config.axisBackgroundColor;
                     ctx.fillRect(
                         py.left,

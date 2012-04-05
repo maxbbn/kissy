@@ -30,7 +30,7 @@ KISSY.add('chart/data', function(S, Util){
         //坐标字体颜色
         axisTextColor : "#999",
         //坐标间隔背景颜色
-        axisBackgroundColor : "#EEE",
+        axisBackgroundColor : "rgba(238, 238, 238, 0.4)",
         //坐标线框颜色
         axisGridColor : "#e4e4e4",
         //Number Format
