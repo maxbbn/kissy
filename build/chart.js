@@ -1,7 +1,7 @@
 ﻿/*
 Copyright 2012, KISSY UI Library v1.30dev
 MIT Licensed
-build time: Apr 10 11:03
+build time: Apr 10 11:07
 */
 /*global KISSY */
 KISSY.add('chart/axis', function(S, Path) {
@@ -1369,7 +1369,6 @@ KISSY.add('chart/chart_line', function(S, Util, Axis, Frame) {
                 by = config.paddingTop - 12,
                 d,
                 color;
-            console.log(elements);
             for (; i >= 0; i--) {
                 d = elements[i];
 
