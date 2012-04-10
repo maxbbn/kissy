@@ -82,19 +82,21 @@ KISSY.add('chart/data', function(S, Util){
      * 图表数据
      * 处理图表输入数据
      * @constructor
-     * @param {Object} 输入的图表JSON数据
+     * @param {Object} data 输入的图表JSON数据
      */
-    function Data(data, drawcfg) {
-        if (!data || !data.type) return;
+    function Data(data) {
+
+        if(!data.type) throw new Error('Data: type is missing');
+
         if (!this instanceof Data)
             return new Data(data);
+
         var self = this,
             cfg = data.config;
 
-        self.origin = data;
+        self._origin = data;
         data = S.clone(data);
         self.type = data.type.toLowerCase();
-        //self._design = data.design;
 
         self.config = cfg = S.merge(defaultConfig, specificConfig[self.type], cfg);
         /**
@@ -112,13 +114,16 @@ KISSY.add('chart/data', function(S, Util){
         });
 
         self._elements = self._expandElement(self._initElement(data));
+
         self._initElementItem();
+
         self._axis = data.axis;
     }
 
     S.augment(Data, /**@lends Data.protoptype*/{
         /**
          * get the AxisData
+         * @return {Object} the axis data
          */
         axis : function () {
             return this._axis;
@@ -346,6 +351,7 @@ KISSY.add('chart/data', function(S, Util){
             self._max = 0;
 
             self.eachElement(function (elem, idx, idx2) {
+
                 var label;
 
                 //统计最大值
@@ -366,7 +372,10 @@ KISSY.add('chart/data', function(S, Util){
                     elem.format = self.config.numberFormat;
                 }
 
-                label = (typeof elem.label === 'undefined') ? null : elem.label;
+
+                label = (typeof elem.label === 'undefined') ? '{name} - {data}' : elem.label;
+                
+                console.log(label)
 
                 elem.label = S.substitute(
                     label, {
@@ -375,7 +384,9 @@ KISSY.add('chart/data', function(S, Util){
                     }
                 );
 
-                elem.notdraw = self._elements[idx].notdraw;
+                if (self._elements[idx].notdraw) {
+                    elem.notdraw = true;
+                }
 
             });
         }
