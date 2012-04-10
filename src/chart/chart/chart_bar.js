@@ -1,4 +1,4 @@
-KISSY.add('chart/element_bar', function (S, Util, Path) {
+KISSY.add('chart/chart_bar', function (S, Util, Path, Axis, Frame) {
     var MOUSE_LEAVE = "mouse_leave",
         MOUSE_MOVE = "mouse_move";
 
@@ -12,9 +12,9 @@ KISSY.add('chart/element_bar', function (S, Util, Path) {
     }
 
     /**
-     * class BarElement for Bar Chart
+     * class ChartBar for Bar Chart
      */
-    function BarElement(data, chart, drawcfg) {
+    function ChartBar(data, chart, drawcfg) {
         var self = this;
         self.data = data;
         self.chart = chart;
@@ -22,29 +22,44 @@ KISSY.add('chart/element_bar', function (S, Util, Path) {
         self.config = data.config;
 
         self.initData(drawcfg);
-        self.initEvent();
+        
 
         self.current = [-1,-1];
         self.anim = new Util.Anim(self.config.animationDuration,self.config.animationEasing)//,1,"bounceOut");
+        self.axis = new Axis(data, chart);
+        self.frame = new Frame(chart, data);
         self.anim.init();
+        self.initEvent();
     }
 
-    S.augment(BarElement, S.EventTarget, {
+    S.augment(ChartBar, S.EventTarget, {
 
-        initData : function (cfg) {
-            var self      = this,
-                data      = self.data,
-                elemLength= data.elements().length,
-                maxlength = data.maxElementLength(),
-                right = cfg.width - cfg.paddingRight,
-                left = cfg.paddingLeft,
-                bottom = cfg.height - cfg.paddingBottom,
-                itemwidth = (right - left)/maxlength,
-                gap = itemwidth/5/elemLength,//gap between bars
-                padding = itemwidth/3/elemLength,
-                barwidth = (itemwidth - (elemLength - 1) * gap - 2*padding)/elemLength,
-                barheight,barleft,bartop,color,
-                items = [];
+        initData : function () {
+            var self          = this,
+                chart         = self.chart,
+                width         = chart.width,
+                height        = chart.height,
+                data          = self.data,
+                config        = data.config,
+                elemLength    = data.elements().length,
+                maxlength     = data.maxElementLength(),
+                paddingRight  = config.paddingRight,
+                paddingLeft   = config.paddingLeft,
+                paddingTop    = config.paddingTop,
+                paddingBottom = config.paddingBottom,
+                right         = width - paddingRight,
+                left          = paddingLeft,
+                bottom        = height - paddingBottom,
+                itemwidth     = (right - left) / maxlength,
+                gap           = itemwidth / 5 / elemLength,//gap between bars
+                padding       = itemwidth / 3 / elemLength,
+                barwidth      = (itemwidth - (elemLength - 1) * gap - 2 * padding) / elemLength,
+                items         = [],
+                barheight,
+                barleft,
+                bartop,
+                color;
+
             self.maxLength = maxlength;
 
             self.items = items;
@@ -67,7 +82,7 @@ KISSY.add('chart/element_bar', function (S, Util, Path) {
 
                 var element = items[idx];
 
-                barheight = (bottom - cfg.top) * elem.data / cfg.max;
+                barheight = (bottom - paddingTop) * elem.data / data.y_max;
                 barleft = left + idx2 * itemwidth + padding + idx * (barwidth + gap);
                 bartop = bottom - barheight;
 
@@ -93,19 +108,29 @@ KISSY.add('chart/element_bar', function (S, Util, Path) {
          */
         draw : function (ctx) {
             var self = this,
-                data = self.items,
+                items = self.items,
+                data = self.data,
+                config = data.config,
                 ml = self.maxLength,
-                color,gradiet,colord,chsl,
-                barheight,cheight,barleft,bartop,
-                //for anim
+                color,
+                gradiet,
+                colord,
+                chsl,
+                barheight,
+                cheight,
+                barleft,
+                bartop,
                 k = self.anim.get(),
                 i;
+
+            self.axis.draw(ctx);
+            self.frame.draw(ctx);
 
             if (self.data.config.showLabels) {
                 self.drawNames(ctx);
             }
 
-            S.each(data, function (bar, idx) {
+            S.each(items, function (bar, idx) {
                 for(i = 0; i< ml; i++) {
                     barleft = bar._left[i];
                     barheight = bar._height[i];
@@ -130,8 +155,8 @@ KISSY.add('chart/element_bar', function (S, Util, Path) {
                         ctx.font = "20px bold Arial";
                         ctx.textBaseline = "top";
                         ctx.textAlign = "center";
-                        data = self.data.elements()[idx];
-                        ctx.fillText(Util.numberFormat(data.data, data.format), bar._x[i], bartop + 2);
+                        element = self.data.elements()[idx];
+                        ctx.fillText(Util.numberFormat(element.data, element.format), bar._x[i], bartop + 2);
                         ctx.restore();
                     }
                 }
@@ -144,13 +169,15 @@ KISSY.add('chart/element_bar', function (S, Util, Path) {
         },
 
         initEvent : function () {
-            this.chart.on(MOUSE_MOVE,this.chartMouseMove,this);
-            this.chart.on(MOUSE_LEAVE,this.chartMouseLeave,this);
+            var self = this;
+            self.chart.on(MOUSE_MOVE, self.chartMouseMove,self);
+            self.chart.on(MOUSE_LEAVE, self.chartMouseLeave,self);
         },
 
         destory : function () {
-            this.chart.detach(MOUSE_MOVE,this.chartMouseMove);
-            this.chart.detach(MOUSE_LEAVE,this.chartMouseLeave);
+            var self = this;
+            self.chart.detach(MOUSE_MOVE, self.chartMouseMove);
+            self.chart.detach(MOUSE_LEAVE, self.chartMouseLeave);
         },
 
         chartMouseMove : function (ev) {
@@ -202,23 +229,28 @@ KISSY.add('chart/element_bar', function (S, Util, Path) {
             return msg;
         },
         
+
         drawNames : function (ctx) {
+
             var self = this,
-                cfg = self.drawcfg,
-                data = self.data.elements(),
-                l = data.length,
+                chart = self.chart,
+                width = chart.width,
+                height = chart.height,
+                data   = self.data,
+                elements = self.data.elements(),
+                config = data.config,
+                l = elements.length,
                 i = l - 1,
-                br = cfg.width - cfg.paddingRight,
-                by = cfg.paddingTop - 12,
+                br = width - config.paddingRight,
+                by = config.paddingTop - 12,
                 d,
                 c;
-
-            for(; i>=0; i--) {
-                d = data[i];
+            for(;  i>=0;  i--) {
+                d = elements[i];
                 if (d.notdraw) {
                     continue;
                 }
-                c = self.data.getColor(i);
+                c = data.getColor(i);
                 //draw text
                 ctx.save();
                 ctx.textAlign = "end";
@@ -241,7 +273,9 @@ KISSY.add('chart/element_bar', function (S, Util, Path) {
         }
     });
 
-    return BarElement;
+    return {
+        'bar' : ChartBar
+    };
 },{
-    requires : ["chart/util", "chart/path"]
+    requires : ["chart/util", "chart/path", "chart/axis", "chart/frame"]
 });

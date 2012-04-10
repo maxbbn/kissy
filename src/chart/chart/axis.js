@@ -1,4 +1,5 @@
-KISSY.add('chart/axis', function(S, Path) { 
+/*global KISSY */
+KISSY.add('chart/axis', function(S, Path) {
     var Event = S.Event,
         LINE = 'line',
         BAR = 'bar';
@@ -6,86 +7,71 @@ KISSY.add('chart/axis', function(S, Path) {
     /**
      * Axis of Chart
      * @constructor
-     * @param {DataObject} data of Chart
-     * @param {ChartObject} chart Instance
-     * @param {Object} config of Chart
+     * @param {Data} data of Chart.
+     * @param {Chart} chart instance of current chart.
      */
-    function Axis(data, chart, config) {
+    function Axis(data, chart) {
         var self = this,
-            label,cfgitem;
+            label,
+            cfgitem;
 
         self.chart = chart;
         self.type = data.type;
         self.data = data;
         self.axisData = data.axis();
-        self.cfg= config;
         self.current_x = -1;
         self.initEvent();
 
         S.each(self.axisData, function(item, label) {
-            item.name = ("name" in item) && S.isString(item) && item.name.length > 0 ? "(" + item.name + ")" : false;
+            item.name = item.name ? item.name : false;
         });
 
-        self.initdata(self.axisData, config);
+        self.initdata();
     }
-
-    S.mix(Axis, {
-        getMax : function(max, cfg) {
-            var h = cfg.height - cfg.paddingBottom - cfg.paddingTop,
-                n = Math.ceil(h / 40),
-                g = max / n,i;
-            if (g <= 1) {
-                g = 1;
-            } else if (g > 1 && g <= 5) {
-                g = Math.ceil(g);
-            } else if (g > 5 && g <= 10) {
-                g = 10;
-            } else {
-                i = 1;
-                do{
-                    i *= 10;
-                    g = g / 10;
-                } while (g > 10)
-                g = Math.ceil(g) * i;
-            }
-            return g * n;
-        }
-    });
 
     S.augment(Axis, S.EventTarget, {
         /**
          * 初始化 Y轴 Label
          */
-        initYLabel : function(data, cfg) {
-            if (data.y.labels) {
-                return null;
-            }
-            var max = cfg.max,
-                n = Math.ceil((cfg.height - cfg.paddingBottom - cfg.paddingTop) / 40),
+        initYLabel : function() {
+            var self = this,
+                data = self.data,
+                config = data.config,
+                chart = self.chart,
+                height = chart.height,
+                width = chart.width,
+                axisData = self.axisData,
+                max = self.data.y_max,
+                n = Math.ceil((height - config.paddingBottom - config.paddingTop) / 40),
                 g = max / n,
                 labels = [];
             for (i = 0; i <= n; i++) {
                 labels.push(g * i);
             }
-            data.y.labels = labels
+            axisData.y.labels = labels
         },
 
         /**
          * 初始化数据
          */
         initdata : function(axisData, cfg) {
+            this.initYLabel();
 
-            this.initYLabel(axisData, cfg);
-
-            var xd = axisData.x,
+            var self = this,
+                data = self.data,
+                chart = self.chart,
+                cwidth = chart.width,
+                height = chart.height,
+                config = data.config,
+                axisData = self.axisData,
+                xd = axisData.x,
                 yd = axisData.y,
                 xl = xd.labels.length,
                 yl = yd.labels.length,
-                height = cfg.height,
-                right = cfg.width - cfg.paddingRight,
-                left = cfg.paddingLeft,
-                bottom = height - cfg.paddingBottom,
-                top = cfg.paddingTop,
+                right = cwidth - config.paddingRight,
+                left = config.paddingLeft,
+                bottom = height - config.paddingBottom,
+                top = config.paddingTop,
                 ygap = (bottom - top) / (yl - 1),
                 width = right - left,
                 xgap, pathx,pathleft,pathright,
@@ -118,6 +104,7 @@ KISSY.add('chart/axis', function(S, Path) {
                     bottom : bottom,
                     x : pathx
                 });
+
                 xd._area.push(new Path.RectPath(pathleft, top, pathright - pathleft, bottom - top));
             }
             //init Y Axis
@@ -180,7 +167,7 @@ KISSY.add('chart/axis', function(S, Path) {
          * 绘坐标系
          * @param {CanasContext} context of current canvas
          */
-        draw : function(ctx, size) {
+        draw : function(ctx) {
             var self = this,
                 config = self.data.config,
                 axisData = self.data.axis(),
@@ -188,10 +175,19 @@ KISSY.add('chart/axis', function(S, Path) {
                 cfgy = axisData.y,
                 lx = cfgx.labels.length,
                 ly = cfgy.labels.length,
-                label,gridleft,
+                label,
+                gridleft,
+                width = self.chart.width,
                 isline = self.type === LINE,
                 isbar = self.type === BAR,
-                i, iscurrent,px,py,textwidth,labelx,showlabel;
+                i,
+                iscurrent,
+                px,
+                py,
+                textwidth,
+                labelx,
+                showlabel;
+
             ctx.save();
             //draw y axis
             for (i = 0; i < ly; i++) {
@@ -274,7 +270,7 @@ KISSY.add('chart/axis', function(S, Path) {
                 textwidth = ctx.measureText(label).width + 6;
                 ctx.fillStyle = "#333";
                 labelx = Math.max(px.x - textwidth / 2, config.paddingLeft);
-                labelx = Math.min(labelx, size.width - config.paddingRight - textwidth);
+                labelx = Math.min(labelx, width - config.paddingRight - textwidth);
                 ctx.fillRect(labelx, px.bottom, textwidth, 20);
                 ctx.textAlign = "left";
                 ctx.fillStyle = "#ffffff";
@@ -285,31 +281,39 @@ KISSY.add('chart/axis', function(S, Path) {
         },
 
         /**
-         * 绘制坐标文字
+         * 绘制坐标轴名称
          * @private
          */
         drawLabels : function(ctx) {
             var self = this,
                 data = self.data.axis(),
+                config = self.data.config,
                 yname = data.y.name,
                 xname = data.x.name,
                 px = data.x._lpath,
                 py = data.y._lpath;
-            //draw yaxis name
+
+            if (config.hideYAxisName && config.hideXAxisName) {
+                return;
+            }
+            
             ctx.save();
             ctx.font = "10px Arial";
             ctx.fillStyle = "#808080";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            if (xname) {
-                ctx.fillText(xname, px.x, px.y);
+            if (!config.hideXAxisName) {
+                ctx.fillText('(' + xname + ')', px.x, px.y);
             }
-            if (yname) {
+            if (!config.hideYAxisName) {
                 ctx.rotate(Math.PI / 2);
                 ctx.translate(py.x, py.y);
-                ctx.fillText(yname, 0, 0);
+                ctx.fillText('(' + yname + ')', 0, 0);
             }
             ctx.restore();
+            
+
+            
         }
     });
     return Axis;

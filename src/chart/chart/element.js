@@ -22,7 +22,7 @@ KISSY.add('chart/element', function(S, PieElement, BarElement, LineElement){
             return new E(data,chart,cfg);
         },
 
-        getMax : function(data){
+        getMax : function (data) {
             var max = data[0].data[0],
                 elementidx, elementl = data.length,
                 dataidx, datal;

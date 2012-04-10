@@ -1,4 +1,5 @@
-KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, Element) {
+KISSY.add("chart/chart", function (S, Util, Data, SimpleTooltip, ChartLine, ChartBar) {
+
     /**
      * 图表默认配置
      */
@@ -19,6 +20,7 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
          * Event Mouse move
          */
         MOUSE_MOVE = "mouse_move";
+
     /**
      * 图表实例管理器，在这里，对图表间公用的资源进行管理
      * @constructor
@@ -139,6 +141,7 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
         
         self.width = parseInt(elCanvas.attr('width'), 10),
         self.height = parseInt(elCanvas.attr('height'), 10);
+
         self.elCanvas = elCanvas;
         self.ctx = -1;
         self.tooltip = chartManager.getTooltip();
@@ -151,6 +154,18 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
         chartManager.add(this);
     }
 
+    S.mix(Chart, {
+        /**
+         * Chart Type Extention
+         * @param {Object} cfg chart extention
+         */
+        addType : function (cfg) {
+            S.mix(Chart.types, cfg);
+        },
+
+        types : {}
+    })
+
     S.extend(Chart, S.Base, /**@lends Chart.prototype*/ {
 
         /**
@@ -160,6 +175,10 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
         render : function (data) {
             var self = this;
 
+            if (data) {
+                self.data = data;
+            }
+
             // ensure we have got context here
             if (self.ctx == -1) {
                 self.data = data;
@@ -167,37 +186,36 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
                 return;
             }
 
+
             //wait... context to init
             if (self.ctx === 0) {
-                self.data = data;
                 return;
             }
 
-            self._data = new Data(data);
-            if (!self._data) return;
-            data = self._data;
-
-            self.initChart();
             //绘图相关属性
             self._drawcfg = S.merge(defaultCfg, data.config, {
                 width : self.width,
                 height : self.height
             });
+            //处理输入数据
+            self._data = new Data(data, self._drawcfg);
+            // if (!self._data) return;
+            data = self._data;
+
+            //初始化
+            self.initChart();
+
+            
 
 
-            if (data.type === "bar" || data.type === "line") {
+            // if (data.type === "bar" || data.type === "line") {
 
-                //generate the max of Y axis
-                self._drawcfg.max = data.axis().y.max || Axis.getMax(data.max(), self._drawcfg);
+            //     //generate the max of Y axis
+            //     self._drawcfg.max = data.axis().y.max || Axis.getMax(data.max(), self._drawcfg);
 
-                self.axis = new Axis(data, self, self._drawcfg);
-                self._frame = new Frame(self._data, self._drawcfg);
-                self.layers.push(self.axis);
-                self.layers.push(self._frame);
+            // }
 
-            }
-
-            self.element = Element.getElement(self._data, self, self._drawcfg);
+            self.element = new Chart.types[data.type](data, this, self._drawcfg);//Element.getElement(self._data, self, self._drawcfg);
 
             self.layers.push(self.element);
 
@@ -219,6 +237,7 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
                 self.initEvent();
             }, 100);
         },
+
         /**
          * init Canvas Context
          * @private
@@ -249,6 +268,8 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
                 }
             }
         },
+
+        
 
         /**
          * execute when the ctx is ready
@@ -297,21 +318,15 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
             self._updateOffset();
             self.loading();
 
-            S.each([self.element,self.axis], function (item) {
-                if (item) {
-                    item.destory();
-                    item.detach();
-                }
-            });
+            if (self.element) {
+                self.element.destory();
+                self.element = null;
+            }
 
-            self.element = null;
-            self.axis = null;
             if (self._event_inited) {
                 self.elCanvas
-                    // .detach("mousemove", self._mousemoveHandle)
                     .detach("mouseenter", self._mouseenterHandle)
-                    .detach("mouseleave", self._mouseLeaveHandle)
-                
+                    .detach("mouseleave", self._mouseLeaveHandle);
 
                 self.detach();
             }
@@ -335,12 +350,7 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
 
             self.on(MOUSE_LEAVE, self._drawAreaLeave, self);
 
-            if (self.axis) {
-                self.axis
-                    .on("xaxishover", self._xAxisHover, self)
-                    .on("leave", self._xAxisLeave, self)
-                    .on("redraw", self._redraw, self);
-            }
+            
 
             self.element
                 .on("redraw", self._redraw, self)
@@ -361,19 +371,19 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
         draw : function () {
             var self = this,
                 ctx = self.ctx,
-                size = self._drawcfg;
+                drawcfg = self._drawcfg;
 
             //ctx.save();
             //ctx.globalAlpha = k;
             if (self.backgroundFillStyle) {
                 ctx.fillStyle = self.backgroundFillStyle;
-                ctx.fillRect(0, 0, size.width, size.height);
+                ctx.fillRect(0, 0, drawcfg.width, drawcfg.height);
             }else{
-                ctx.clearRect(0, 0, size.width, size.height);
+                ctx.clearRect(0, 0, drawcfg.width, drawcfg.height);
             }
 
             S.each(self.layers, function (e, i) {
-                e.draw(ctx, size);
+                e.draw(ctx, drawcfg);
             });
             //ctx.restore();
         },
@@ -426,28 +436,10 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
          * event handler
          * @private
          */
-        _xAxisLeave : function (ev) {
-            //this._redraw();
-            this.fire("axisleave");
-        },
-        /**
-         * event handler
-         * @private
-         */
-        _xAxisHover : function (ev) {
-            this.fire("axishover", {
-                index : ev.index,
-                x : ev.x
-            });
-            this._redraw();
-        },
-        /**
-         * event handler
-         * @private
-         */
         _drawAreaLeave : function (ev) {
             this.tooltip.hide();
         },
+
         /**
          * event handle
          * @private
@@ -481,6 +473,8 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
         }
     });
 
+    Chart.addType(ChartLine);
+    Chart.addType(ChartBar);
     /*export*/
     chartManager = window.chartManager = new ChartManager();
     S.Chart = Chart;
@@ -490,9 +484,8 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
     requires:[
         'chart/util',
         'chart/data',
-        'chart/axis',
-        'chart/frame',
         'chart/simpletooltip',
-        'chart/element'
+        'chart/chart_line',
+        'chart/chart_bar'
     ]
 });

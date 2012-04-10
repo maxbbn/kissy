@@ -1,9 +1,10 @@
 ﻿/*
 Copyright 2012, KISSY UI Library v1.30dev
 MIT Licensed
-build time: Apr 5 19:12
+build time: Apr 10 10:57
 */
-KISSY.add('chart/axis', function(S, Path) { 
+/*global KISSY */
+KISSY.add('chart/axis', function(S, Path) {
     var Event = S.Event,
         LINE = 'line',
         BAR = 'bar';
@@ -11,86 +12,71 @@ KISSY.add('chart/axis', function(S, Path) {
     /**
      * Axis of Chart
      * @constructor
-     * @param {DataObject} data of Chart
-     * @param {ChartObject} chart Instance
-     * @param {Object} config of Chart
+     * @param {Data} data of Chart.
+     * @param {Chart} chart instance of current chart.
      */
-    function Axis(data, chart, config) {
+    function Axis(data, chart) {
         var self = this,
-            label,cfgitem;
+            label,
+            cfgitem;
 
         self.chart = chart;
         self.type = data.type;
         self.data = data;
         self.axisData = data.axis();
-        self.cfg= config;
         self.current_x = -1;
         self.initEvent();
 
         S.each(self.axisData, function(item, label) {
-            item.name = ("name" in item) && S.isString(item) && item.name.length > 0 ? "(" + item.name + ")" : false;
+            item.name = item.name ? item.name : false;
         });
 
-        self.initdata(self.axisData, config);
+        self.initdata();
     }
-
-    S.mix(Axis, {
-        getMax : function(max, cfg) {
-            var h = cfg.height - cfg.paddingBottom - cfg.paddingTop,
-                n = Math.ceil(h / 40),
-                g = max / n,i;
-            if (g <= 1) {
-                g = 1;
-            } else if (g > 1 && g <= 5) {
-                g = Math.ceil(g);
-            } else if (g > 5 && g <= 10) {
-                g = 10;
-            } else {
-                i = 1;
-                do{
-                    i *= 10;
-                    g = g / 10;
-                } while (g > 10)
-                g = Math.ceil(g) * i;
-            }
-            return g * n;
-        }
-    });
 
     S.augment(Axis, S.EventTarget, {
         /**
          * 初始化 Y轴 Label
          */
-        initYLabel : function(data, cfg) {
-            if (data.y.labels) {
-                return null;
-            }
-            var max = cfg.max,
-                n = Math.ceil((cfg.height - cfg.paddingBottom - cfg.paddingTop) / 40),
+        initYLabel : function() {
+            var self = this,
+                data = self.data,
+                config = data.config,
+                chart = self.chart,
+                height = chart.height,
+                width = chart.width,
+                axisData = self.axisData,
+                max = self.data.y_max,
+                n = Math.ceil((height - config.paddingBottom - config.paddingTop) / 40),
                 g = max / n,
                 labels = [];
             for (i = 0; i <= n; i++) {
                 labels.push(g * i);
             }
-            data.y.labels = labels
+            axisData.y.labels = labels
         },
 
         /**
          * 初始化数据
          */
         initdata : function(axisData, cfg) {
+            this.initYLabel();
 
-            this.initYLabel(axisData, cfg);
-
-            var xd = axisData.x,
+            var self = this,
+                data = self.data,
+                chart = self.chart,
+                cwidth = chart.width,
+                height = chart.height,
+                config = data.config,
+                axisData = self.axisData,
+                xd = axisData.x,
                 yd = axisData.y,
                 xl = xd.labels.length,
                 yl = yd.labels.length,
-                height = cfg.height,
-                right = cfg.width - cfg.paddingRight,
-                left = cfg.paddingLeft,
-                bottom = height - cfg.paddingBottom,
-                top = cfg.paddingTop,
+                right = cwidth - config.paddingRight,
+                left = config.paddingLeft,
+                bottom = height - config.paddingBottom,
+                top = config.paddingTop,
                 ygap = (bottom - top) / (yl - 1),
                 width = right - left,
                 xgap, pathx,pathleft,pathright,
@@ -123,6 +109,7 @@ KISSY.add('chart/axis', function(S, Path) {
                     bottom : bottom,
                     x : pathx
                 });
+
                 xd._area.push(new Path.RectPath(pathleft, top, pathright - pathleft, bottom - top));
             }
             //init Y Axis
@@ -185,7 +172,7 @@ KISSY.add('chart/axis', function(S, Path) {
          * 绘坐标系
          * @param {CanasContext} context of current canvas
          */
-        draw : function(ctx, size) {
+        draw : function(ctx) {
             var self = this,
                 config = self.data.config,
                 axisData = self.data.axis(),
@@ -193,10 +180,19 @@ KISSY.add('chart/axis', function(S, Path) {
                 cfgy = axisData.y,
                 lx = cfgx.labels.length,
                 ly = cfgy.labels.length,
-                label,gridleft,
+                label,
+                gridleft,
+                width = self.chart.width,
                 isline = self.type === LINE,
                 isbar = self.type === BAR,
-                i, iscurrent,px,py,textwidth,labelx,showlabel;
+                i,
+                iscurrent,
+                px,
+                py,
+                textwidth,
+                labelx,
+                showlabel;
+
             ctx.save();
             //draw y axis
             for (i = 0; i < ly; i++) {
@@ -279,7 +275,7 @@ KISSY.add('chart/axis', function(S, Path) {
                 textwidth = ctx.measureText(label).width + 6;
                 ctx.fillStyle = "#333";
                 labelx = Math.max(px.x - textwidth / 2, config.paddingLeft);
-                labelx = Math.min(labelx, size.width - config.paddingRight - textwidth);
+                labelx = Math.min(labelx, width - config.paddingRight - textwidth);
                 ctx.fillRect(labelx, px.bottom, textwidth, 20);
                 ctx.textAlign = "left";
                 ctx.fillStyle = "#ffffff";
@@ -290,38 +286,47 @@ KISSY.add('chart/axis', function(S, Path) {
         },
 
         /**
-         * 绘制坐标文字
+         * 绘制坐标轴名称
          * @private
          */
         drawLabels : function(ctx) {
             var self = this,
                 data = self.data.axis(),
+                config = self.data.config,
                 yname = data.y.name,
                 xname = data.x.name,
                 px = data.x._lpath,
                 py = data.y._lpath;
-            //draw yaxis name
+
+            if (config.hideYAxisName && config.hideXAxisName) {
+                return;
+            }
+            
             ctx.save();
             ctx.font = "10px Arial";
             ctx.fillStyle = "#808080";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            if (xname) {
-                ctx.fillText(xname, px.x, px.y);
+            if (!config.hideXAxisName) {
+                ctx.fillText('(' + xname + ')', px.x, px.y);
             }
-            if (yname) {
+            if (!config.hideYAxisName) {
                 ctx.rotate(Math.PI / 2);
                 ctx.translate(py.x, py.y);
-                ctx.fillText(yname, 0, 0);
+                ctx.fillText('(' + yname + ')', 0, 0);
             }
             ctx.restore();
+            
+
+            
         }
     });
     return Axis;
 }, {
     requires : ["chart/path"]
 });
-KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, Element) {
+KISSY.add("chart/chart", function (S, Util, Data, SimpleTooltip, ChartLine, ChartBar) {
+
     /**
      * 图表默认配置
      */
@@ -342,6 +347,7 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
          * Event Mouse move
          */
         MOUSE_MOVE = "mouse_move";
+
     /**
      * 图表实例管理器，在这里，对图表间公用的资源进行管理
      * @constructor
@@ -462,6 +468,7 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
         
         self.width = parseInt(elCanvas.attr('width'), 10),
         self.height = parseInt(elCanvas.attr('height'), 10);
+
         self.elCanvas = elCanvas;
         self.ctx = -1;
         self.tooltip = chartManager.getTooltip();
@@ -474,6 +481,18 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
         chartManager.add(this);
     }
 
+    S.mix(Chart, {
+        /**
+         * Chart Type Extention
+         * @param {Object} cfg chart extention
+         */
+        addType : function (cfg) {
+            S.mix(Chart.types, cfg);
+        },
+
+        types : {}
+    })
+
     S.extend(Chart, S.Base, /**@lends Chart.prototype*/ {
 
         /**
@@ -483,6 +502,10 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
         render : function (data) {
             var self = this;
 
+            if (data) {
+                self.data = data;
+            }
+
             // ensure we have got context here
             if (self.ctx == -1) {
                 self.data = data;
@@ -490,37 +513,36 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
                 return;
             }
 
+
             //wait... context to init
             if (self.ctx === 0) {
-                self.data = data;
                 return;
             }
 
-            self._data = new Data(data);
-            if (!self._data) return;
-            data = self._data;
-
-            self.initChart();
             //绘图相关属性
             self._drawcfg = S.merge(defaultCfg, data.config, {
                 width : self.width,
                 height : self.height
             });
+            //处理输入数据
+            self._data = new Data(data, self._drawcfg);
+            // if (!self._data) return;
+            data = self._data;
+
+            //初始化
+            self.initChart();
+
+            
 
 
-            if (data.type === "bar" || data.type === "line") {
+            // if (data.type === "bar" || data.type === "line") {
 
-                //generate the max of Y axis
-                self._drawcfg.max = data.axis().y.max || Axis.getMax(data.max(), self._drawcfg);
+            //     //generate the max of Y axis
+            //     self._drawcfg.max = data.axis().y.max || Axis.getMax(data.max(), self._drawcfg);
 
-                self.axis = new Axis(data, self, self._drawcfg);
-                self._frame = new Frame(self._data, self._drawcfg);
-                self.layers.push(self.axis);
-                self.layers.push(self._frame);
+            // }
 
-            }
-
-            self.element = Element.getElement(self._data, self, self._drawcfg);
+            self.element = new Chart.types[data.type](data, this, self._drawcfg);//Element.getElement(self._data, self, self._drawcfg);
 
             self.layers.push(self.element);
 
@@ -542,6 +564,7 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
                 self.initEvent();
             }, 100);
         },
+
         /**
          * init Canvas Context
          * @private
@@ -572,6 +595,8 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
                 }
             }
         },
+
+        
 
         /**
          * execute when the ctx is ready
@@ -620,21 +645,15 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
             self._updateOffset();
             self.loading();
 
-            S.each([self.element,self.axis], function (item) {
-                if (item) {
-                    item.destory();
-                    item.detach();
-                }
-            });
+            if (self.element) {
+                self.element.destory();
+                self.element = null;
+            }
 
-            self.element = null;
-            self.axis = null;
             if (self._event_inited) {
                 self.elCanvas
-                    // .detach("mousemove", self._mousemoveHandle)
                     .detach("mouseenter", self._mouseenterHandle)
-                    .detach("mouseleave", self._mouseLeaveHandle)
-                
+                    .detach("mouseleave", self._mouseLeaveHandle);
 
                 self.detach();
             }
@@ -658,12 +677,7 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
 
             self.on(MOUSE_LEAVE, self._drawAreaLeave, self);
 
-            if (self.axis) {
-                self.axis
-                    .on("xaxishover", self._xAxisHover, self)
-                    .on("leave", self._xAxisLeave, self)
-                    .on("redraw", self._redraw, self);
-            }
+            
 
             self.element
                 .on("redraw", self._redraw, self)
@@ -684,19 +698,19 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
         draw : function () {
             var self = this,
                 ctx = self.ctx,
-                size = self._drawcfg;
+                drawcfg = self._drawcfg;
 
             //ctx.save();
             //ctx.globalAlpha = k;
             if (self.backgroundFillStyle) {
                 ctx.fillStyle = self.backgroundFillStyle;
-                ctx.fillRect(0, 0, size.width, size.height);
+                ctx.fillRect(0, 0, drawcfg.width, drawcfg.height);
             }else{
-                ctx.clearRect(0, 0, size.width, size.height);
+                ctx.clearRect(0, 0, drawcfg.width, drawcfg.height);
             }
 
             S.each(self.layers, function (e, i) {
-                e.draw(ctx, size);
+                e.draw(ctx, drawcfg);
             });
             //ctx.restore();
         },
@@ -749,28 +763,10 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
          * event handler
          * @private
          */
-        _xAxisLeave : function (ev) {
-            //this._redraw();
-            this.fire("axisleave");
-        },
-        /**
-         * event handler
-         * @private
-         */
-        _xAxisHover : function (ev) {
-            this.fire("axishover", {
-                index : ev.index,
-                x : ev.x
-            });
-            this._redraw();
-        },
-        /**
-         * event handler
-         * @private
-         */
         _drawAreaLeave : function (ev) {
             this.tooltip.hide();
         },
+
         /**
          * event handle
          * @private
@@ -804,6 +800,8 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
         }
     });
 
+    Chart.addType(ChartLine);
+    Chart.addType(ChartBar);
     /*export*/
     chartManager = window.chartManager = new ChartManager();
     S.Chart = Chart;
@@ -813,11 +811,604 @@ KISSY.add("chart/chart", function (S, Util, Data, Axis, Frame, SimpleTooltip, El
     requires:[
         'chart/util',
         'chart/data',
-        'chart/axis',
-        'chart/frame',
         'chart/simpletooltip',
-        'chart/element'
+        'chart/chart_line',
+        'chart/chart_bar'
     ]
+});
+KISSY.add('chart/chart_bar', function (S, Util, Path, Axis, Frame) {
+    var MOUSE_LEAVE = "mouse_leave",
+        MOUSE_MOVE = "mouse_move";
+
+    function darker(c) {
+        var hsl = c.hslData(),
+            l = hsl[2],
+            s = hsl[1],
+            b  = (l + s/2) * 0.6,
+        l = b - s/2;
+        return new Util.Color.hsl(hsl[0],s,l);
+    }
+
+    /**
+     * class ChartBar for Bar Chart
+     */
+    function ChartBar(data, chart, drawcfg) {
+        var self = this;
+        self.data = data;
+        self.chart = chart;
+        self.drawcfg = drawcfg;
+        self.config = data.config;
+
+        self.initData(drawcfg);
+        
+
+        self.current = [-1,-1];
+        self.anim = new Util.Anim(self.config.animationDuration,self.config.animationEasing)//,1,"bounceOut");
+        self.axis = new Axis(data, chart);
+        self.frame = new Frame(chart, data);
+        self.anim.init();
+        self.initEvent();
+    }
+
+    S.augment(ChartBar, S.EventTarget, {
+
+        initData : function () {
+            var self          = this,
+                chart         = self.chart,
+                width         = chart.width,
+                height        = chart.height,
+                data          = self.data,
+                config        = data.config,
+                elemLength    = data.elements().length,
+                maxlength     = data.maxElementLength(),
+                paddingRight  = config.paddingRight,
+                paddingLeft   = config.paddingLeft,
+                paddingTop    = config.paddingTop,
+                paddingBottom = config.paddingBottom,
+                right         = width - paddingRight,
+                left          = paddingLeft,
+                bottom        = height - paddingBottom,
+                itemwidth     = (right - left) / maxlength,
+                gap           = itemwidth / 5 / elemLength,//gap between bars
+                padding       = itemwidth / 3 / elemLength,
+                barwidth      = (itemwidth - (elemLength - 1) * gap - 2 * padding) / elemLength,
+                items         = [],
+                barheight,
+                barleft,
+                bartop,
+                color;
+
+            self.maxLength = maxlength;
+
+            self.items = items;
+            self.data.eachElement(function (elem,idx,idx2) {
+                if (idx2 === -1) idx2 = 0;
+
+                if (!items[idx]) {
+                    items[idx] = {
+                        _x : [],
+                        _top  :  [],
+                        _left  :  [],
+                        _path  :  [],
+                        _width  :  [],
+                        _height  :  [],
+                        _colors : [],
+                        _dcolors : [],
+                        _labels : []
+                    }
+                }
+
+                var element = items[idx];
+
+                barheight = (bottom - paddingTop) * elem.data / data.y_max;
+                barleft = left + idx2 * itemwidth + padding + idx * (barwidth + gap);
+                bartop = bottom - barheight;
+
+                color = Util.Color(self.data.getColor(idx,"bar"));
+                colord = darker(color);
+
+                element._left[idx2] = barleft;
+                element._top[idx2] = bartop;
+                element._width[idx2] = barwidth;
+                element._height[idx2] = barheight;
+                element._path[idx2] = new Path.RectPath(barleft,bartop,barwidth,barheight);
+                element._x[idx2] = barleft+barwidth/2;
+                element._colors[idx2] = color;
+                element._dcolors[idx2] = colord;
+                element._labels[idx2] = elem.label;
+            });
+
+        },
+
+        /**
+         * draw the barElement
+         * @param {Object} Canvas Object
+         */
+        draw : function (ctx) {
+            var self = this,
+                items = self.items,
+                data = self.data,
+                config = data.config,
+                ml = self.maxLength,
+                color,
+                gradiet,
+                colord,
+                chsl,
+                barheight,
+                cheight,
+                barleft,
+                bartop,
+                k = self.anim.get(),
+                i;
+
+            self.axis.draw(ctx);
+            self.frame.draw(ctx);
+
+            if (self.data.config.showLabels) {
+                self.drawNames(ctx);
+            }
+
+            S.each(items, function (bar, idx) {
+                for(i = 0; i< ml; i++) {
+                    barleft = bar._left[i];
+                    barheight = bar._height[i];
+                    cheight = barheight * k;
+                    bartop = bar._top[i] + barheight - cheight;
+                    barwidth = bar._width[i];
+                    color =    bar._colors[i];
+                    dcolor =    bar._dcolors[i];
+
+                    //draw backgraound
+                    gradiet = ctx.createLinearGradient(barleft,bartop,barleft,bartop + cheight);
+                    gradiet.addColorStop(0,color.css());
+                    gradiet.addColorStop(1,dcolor.css());
+
+                    ctx.fillStyle = gradiet;
+                    //ctx.fillStyle = color;
+                    ctx.fillRect(barleft,bartop,barwidth,cheight);
+                    //draw label on the bar
+                    if (ml === 1 && barheight > 25) {
+                        ctx.save();
+                        ctx.fillStyle = "#fff";
+                        ctx.font = "20px bold Arial";
+                        ctx.textBaseline = "top";
+                        ctx.textAlign = "center";
+                        element = self.data.elements()[idx];
+                        ctx.fillText(Util.numberFormat(element.data, element.format), bar._x[i], bartop + 2);
+                        ctx.restore();
+                    }
+                }
+
+            });
+
+            if (k < 1) {
+                self.fire("redraw");
+            }
+        },
+
+        initEvent : function () {
+            var self = this;
+            self.chart.on(MOUSE_MOVE, self.chartMouseMove,self);
+            self.chart.on(MOUSE_LEAVE, self.chartMouseLeave,self);
+        },
+
+        destory : function () {
+            var self = this;
+            self.chart.detach(MOUSE_MOVE, self.chartMouseMove);
+            self.chart.detach(MOUSE_LEAVE, self.chartMouseLeave);
+        },
+
+        chartMouseMove : function (ev) {
+            var self = this,
+                current = [-1,-1],
+                items = self.items;
+
+            S.each(self.items, function (bar,idx) {
+                S.each(bar._path, function (path,index) {
+                    if (path.inpath(ev.x,ev.y)) {
+                        current = [idx,index];
+                    }
+                });
+            });
+
+            if ( current[0] === self.current[0] && current[1] === self.current[1]) {
+                return;
+            }
+
+            self.current = current;
+
+            if (current[0] + current[1] >= 0) {
+                self.fire("barhover",{index:current});
+                self.fire("showtooltip",{
+                    top : items[current[0]]._top[current[1]],
+                    left : items[current[0]]._x[current[1]],
+                    message : self.getTooltip(current)
+                });
+            }else{
+                self.fire("hidetooltip");
+            }
+        },
+
+        chartMouseLeave : function () {
+            this.current = [-1,-1];
+        },
+        /**
+         * get tip HTML by id
+         * @return {String}
+         **/
+        getTooltip : function (index) {
+            var self = this,
+                eidx = index[0],
+                didx = index[1],
+                item = self.items[eidx],
+                msg = "<div class='bartip'>"+
+                    "<span style='color:"+item._colors[didx].css()+";'>"+
+                    item._labels[didx]+"</span></div>";
+            return msg;
+        },
+        
+
+        drawNames : function (ctx) {
+
+            var self = this,
+                chart = self.chart,
+                width = chart.width,
+                height = chart.height,
+                data   = self.data,
+                elements = self.data.elements(),
+                config = data.config,
+                l = elements.length,
+                i = l - 1,
+                br = width - config.paddingRight,
+                by = config.paddingTop - 12,
+                d,
+                c;
+            for(;  i>=0;  i--) {
+                d = elements[i];
+                if (d.notdraw) {
+                    continue;
+                }
+                c = data.getColor(i);
+                //draw text
+                ctx.save();
+                ctx.textAlign = "end";
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = "#808080";
+                ctx.font = "12px Arial";
+                ctx.fillText(d.name, br, by);
+                br -= ctx.measureText(d.name).width + 10;
+                ctx.restore();
+                //draw color dot
+                ctx.save();
+                ctx.beginPath();
+                ctx.fillStyle = c;
+                ctx.arc(br,by,5,0,Math.PI*2,true);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+                br -= 10;
+            }
+        }
+    });
+
+    return {
+        'bar' : ChartBar
+    };
+},{
+    requires : ["chart/util", "chart/path", "chart/axis", "chart/frame"]
+});
+KISSY.add('chart/chart_line', function(S, Util, Axis, Frame) {
+    /**
+     * class Element for Line chart
+     */
+    function LineElement(data, chart, drawcfg) {
+        var self = this;
+        self.chart = chart;
+        self.data = data;
+        self.elements = data.elements();
+        self._current = -1;
+        self.config = data.config;
+        self.drawcfg = drawcfg;
+        self.initdata(drawcfg);
+        self._ready_idx = -1;
+
+        self.anim = new Util.Anim(
+            self.config.animationDuration,
+            self.config.animationEasing
+        );
+        self.axis = new Axis(data, chart, drawcfg);
+        self.frame = new Frame(chart, data);
+        self.anim.init();
+        self.init();
+
+    }
+
+    S.augment(LineElement, S.EventTarget, {
+        /**
+         * 根据数据源，生成图形数据
+         */
+        initdata: function() {
+            var self = this,
+                data = self.data,
+                chart = self.chart,
+                width = chart.width,
+                height = chart.height,
+                config = data.config,
+                elements = self.elements,
+                ml = data.maxElementLength(),
+                left = config.paddingLeft,
+                max = data.y_max,
+                bottom = height - config.paddingBottom,
+                height = bottom - config.paddingTop,
+                width = width - config.paddingRight - left,
+                gap = width / (ml - 1),
+                maxtop,
+                i,
+                j;
+
+            var items = [];
+            self.items = items;
+
+            data.eachElement(function(elem, idx, idx2) {
+                if (!items[idx]) {
+                    items[idx] = {
+                        _points: [],
+                        _labels: [],
+                        _color: data.getColor(idx),
+                        _maxtop: bottom,
+                        _drawbg: idx === config.drawbg,
+                        _notdraw : elem.notdraw
+                    };
+                }
+                var element = items[idx];
+                ptop = Math.max(
+                    bottom - elem.data / max * height,
+                    config.paddingTop - 5
+                );
+                element._maxtop = Math.min(element._maxtop, ptop);
+                element._labels[idx2] = elem.label;
+                element._points[idx2] = {
+                    x: left + gap * idx2,
+                    y: ptop,
+                    nodata: elem.data === null,
+                    bottom: bottom
+                };
+
+            });
+
+        },
+
+        draw: function(ctx, cfg) {
+
+            var self = this,
+                data = self.data,
+                config = data.config,
+                left = config.paddingLeft,
+                right = cfg.width - config.paddingRight,
+                top = config.paddingTop,
+                bottom = cfg.height - config.paddingBottom,
+                height = bottom - top,
+                max = data.y_max,
+                color,
+                ptop,
+                points,
+                i,
+                l,
+                t,
+                k = self.anim.get(), gradiet;
+
+            self.axis.draw(ctx, cfg);
+            self.frame.draw(ctx, cfg);
+            if (data.config.showLabels) {
+                self.drawNames(ctx, cfg);
+            }
+
+            // the animation
+            if (k >= 1 && this._ready_idx < self.items.length - 1) {
+                self._ready_idx++;
+                self.anim.init();
+                k = self.anim.get();
+            }
+
+            if (this._ready_idx !== data.elements().length - 1 || k !== 1) {
+                this.fire('redraw');
+            }
+
+            S.each(self.items, function(linecfg, idx) {
+                var p;
+                if (linecfg._notdraw) {
+                    return;
+                }
+                if (idx !== self._ready_idx) {
+                    t = (idx > self._ready_idx) ? 0 : 1;
+                } else {
+                    t = k;
+                }
+
+                color = linecfg._color;
+                points = linecfg._points;
+
+                //draw bg
+                if (linecfg._drawbg) {
+                    ctx.save();
+                    ctx.globalAlpha = 0.4;
+                    maxtop = bottom - (bottom - linecfg._maxtop) * t;
+
+                    gradiet = ctx.createLinearGradient(left, maxtop, left, bottom);
+                    gradiet.addColorStop(0, color);
+                    gradiet.addColorStop(1, 'rgb(255,255,255)');
+
+                    ctx.fillStyle = gradiet;
+                    ctx.beginPath();
+                    ctx.moveTo(left, bottom);
+
+                    for (i = 0; i < points.length; i++) {
+                        p = points[i];
+                        ptop = bottom - (bottom - p.y) * t;
+                        ctx.lineTo(p.x, ptop);
+                    }
+
+                    ctx.lineTo(right, bottom);
+                    ctx.stroke();
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                //draw line
+                ctx.save();
+                l = points.length;
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                for (i = 0; i < l; i++) {
+                    p = points[i];
+                    if (p.nodata) continue;
+                    ptop = bottom - (bottom - p.y) * t;
+                    if (i === 0) {
+                        ctx.moveTo(p.x, ptop);
+                    } else {
+                        ctx.lineTo(p.x, ptop);
+                    }
+                }
+                ctx.stroke();
+                ctx.restore();
+
+                //draw point
+                ctx.save();
+                for (i = 0; i < l; i++) {
+                    p = points[i];
+                    if (p.nodata) continue;
+                    ptop = bottom - (bottom - p.y) * t;
+                    //circle outter
+                    ctx.fillStyle = color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, ptop, 5, 0, Math.PI * 2, true);
+                    ctx.closePath();
+                    ctx.fill();
+                    //circle innner
+                    if (i !== self._current) {
+                        ctx.fillStyle = '#fff';
+                        ctx.beginPath();
+                        ctx.arc(p.x, ptop, 3, 0, Math.PI * 2, true);
+                        ctx.closePath();
+                        ctx.fill();
+                    }
+                }
+                ctx.restore();
+            });
+        },
+
+        init: function() {
+            var self = this;
+            self._ready_idx = 0;
+
+            self.axis
+                .on('xaxishover', self._axis_hover, self)
+                .on('leave', self._axis_leave, self)
+                .on('redraw', self._redraw, self);
+        },
+
+        destory: function() {
+            var self = this;
+            self.axis
+                .detach('xaxishover', self._axis_hover)
+                .detach('leave', self._axis_leave)
+                .detach('redraw', self._redraw);
+        },
+
+        _redraw: function() {
+            this.fire('redraw');
+        },
+
+        _axis_hover: function(e) {
+            var idx = e.index;
+            if (this._current !== idx) {
+                this._current = idx;
+                this.fire('redraw');
+                this.fire('showtooltip', {
+                    message: this.getTooltip(idx)
+                });
+            }
+        },
+
+        _axis_leave: function(e) {
+            this._current = -1;
+            this.fire('redraw');
+        },
+        /**
+         * get tip HTML by id
+         * @param {Number} index of data.
+         * @return {String} html of the tips.
+         **/
+        getTooltip: function(index) {
+            var self = this, ul, li;
+            ul = '<ul>';
+
+            S.each(self.items, function(item, idx) {
+                if (item._points[index].nodata) {
+                    return;
+                }
+                li = '<li><p style="color:' + item._color + '">' +
+                        item._labels[index] +
+                    '</p></li>';
+                ul += li;
+            });
+            ul += '</ul>';
+            return ul;
+        },
+
+        drawNames: function(ctx) {
+            var self = this,
+                width = self.chart.width,
+                data = self.data,
+                config = data.config,
+                elements = data.elements(),
+                l = elements.length,
+                i = l - 1,
+                br = width - config.paddingRight,
+                by = config.paddingTop - 12,
+                d,
+                color;
+            console.log(elements);
+            for (; i >= 0; i--) {
+                d = elements[i];
+
+                if (d.notdraw) {
+                    continue;
+                }
+
+                color = self.data.getColor(i);
+                //draw text
+                ctx.save();
+                ctx.textAlign = 'end';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#808080';
+                ctx.font = '12px Arial';
+
+                ctx.fillText(d.name, br, by);
+
+                br -= ctx.measureText(d.name).width + 10;
+                ctx.restore();
+                //draw color dot
+                ctx.save();
+                ctx.beginPath();
+                ctx.fillStyle = color;
+                ctx.arc(br, by, 5, 0, Math.PI * 2, true);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+                br -= 10;
+            }
+        }
+
+    });
+
+    return {
+        'line' : LineElement
+    };
+},
+{
+    requires: ['chart/util', 'chart/axis', 'chart/frame']
 });
 KISSY.add('chart/data', function(S, Util){
     /**
@@ -827,19 +1418,24 @@ KISSY.add('chart/data', function(S, Util){
         //上边距
         paddingTop: 30,
         //左边距
-        paddingLeft : 20,
+        paddingLeft : 40,
         //右边距
         paddingRight : 20,
         //底边距
         paddingBottom : 20,
         //是否显示标签
         showLabels : true,
-
+        //颜色配置
         colors : [],
         //动画间隔
         animationDuration : .5,
         //动画Easing函数
         animationEasing : "easeInStrong",
+        // 不显示Y座标名称
+        hideYAxisName : false,
+
+        // 不显示X座标名称
+        hideXAxisName : true,
         //背景色 或 背景渐变
         /*
         {
@@ -900,7 +1496,7 @@ KISSY.add('chart/data', function(S, Util){
      * @constructor
      * @param {Object} 输入的图表JSON数据
      */
-    function Data(data) {
+    function Data(data, drawcfg) {
         if (!data || !data.type) return;
         if (!this instanceof Data)
             return new Data(data);
@@ -930,6 +1526,7 @@ KISSY.add('chart/data', function(S, Util){
         self._elements = self._expandElement(self._initElement(data));
         self._initElementItem();
         self._axis = data.axis;
+        self.y_max = self.getMax(self.max(), drawcfg);
     }
 
     S.augment(Data, /**@lends Data.protoptype*/{
@@ -1002,6 +1599,30 @@ KISSY.add('chart/data', function(S, Util){
          */
         max : function () {
             return this._max;
+        },
+
+        getMax : function(max, cfg) {
+            var config = this.config,
+                h = cfg.height - config.paddingBottom - config.paddingTop,
+                n = Math.ceil(h / 40),
+                g = max / n,
+                i;
+
+            if (g <= 1) {
+                g = 1;
+            } else if (g > 1 && g <= 5) {
+                g = Math.ceil(g);
+            } else if (g > 5 && g <= 10) {
+                g = 10;
+            } else {
+                i = 1;
+                do{
+                    i *= 10;
+                    g = g / 10;
+                } while (g > 10)
+                g = Math.ceil(g) * i;
+            }
+            return g * n;
         },
 
         /**
@@ -1131,12 +1752,12 @@ KISSY.add('chart/data', function(S, Util){
 
             self._max = 0;
 
-            self.eachElement(function (elem,idx,idx2) {
+            self.eachElement(function (elem, idx, idx2) {
                 var label;
 
                 //统计最大值
                 if (idx === 0 && (!idx2)) self._max = elem.data || 0;
-                elem.data = S.isNumber(elem.data) ? elem.data : 0 ;
+                elem.data = S.isNumber(elem.data) ? elem.data : null ;
                 self._max = Math.max(self._max, elem.data);
 
                 
@@ -1157,9 +1778,11 @@ KISSY.add('chart/data', function(S, Util){
                 elem.label = S.substitute(
                     label, {
                         name : elem.name,
-                        data : elem.format ? Util.numberFormat(elem.data, elem.format) : elem.data
+                        data : elem.format && typeof elem.data === 'number' ? Util.numberFormat(elem.data, elem.format) : elem.data
                     }
                 );
+
+                elem.notdraw = self._elements[idx].notdraw;
 
             });
         }
@@ -1193,7 +1816,7 @@ KISSY.add('chart/data', function(S, Util){
             return new E(data,chart,cfg);
         },
 
-        getMax : function(data){
+        getMax : function (data) {
             var max = data[0].data[0],
                 elementidx, elementl = data.length,
                 dataidx, datal;
@@ -1264,511 +1887,6 @@ KISSY.add('chart/data', function(S, Util){
 
 }, {
     requires : ['chart/element_pie', 'chart/element_bar', 'chart/element_line']
-});
-KISSY.add('chart/element_bar', function (S, Util, Path) {
-    var MOUSE_LEAVE = "mouse_leave",
-        MOUSE_MOVE = "mouse_move";
-
-    function darker(c) {
-        var hsl = c.hslData(),
-            l = hsl[2],
-            s = hsl[1],
-            b  = (l + s/2) * 0.6,
-        l = b - s/2;
-        return new Util.Color.hsl(hsl[0],s,l);
-    }
-
-    /**
-     * class BarElement for Bar Chart
-     */
-    function BarElement(data, chart, drawcfg) {
-        var self = this;
-        self.data = data;
-        self.chart = chart;
-        self.drawcfg = drawcfg;
-        self.config = data.config;
-
-        self.initData(drawcfg);
-        self.initEvent();
-
-        self.current = [-1,-1];
-        self.anim = new Util.Anim(self.config.animationDuration,self.config.animationEasing)//,1,"bounceOut");
-        self.anim.init();
-    }
-
-    S.augment(BarElement, S.EventTarget, {
-
-        initData : function (cfg) {
-            var self      = this,
-                data      = self.data,
-                elemLength= data.elements().length,
-                maxlength = data.maxElementLength(),
-                right = cfg.width - cfg.paddingRight,
-                left = cfg.paddingLeft,
-                bottom = cfg.height - cfg.paddingBottom,
-                itemwidth = (right - left)/maxlength,
-                gap = itemwidth/5/elemLength,//gap between bars
-                padding = itemwidth/3/elemLength,
-                barwidth = (itemwidth - (elemLength - 1) * gap - 2*padding)/elemLength,
-                barheight,barleft,bartop,color,
-                items = [];
-            self.maxLength = maxlength;
-
-            self.items = items;
-            self.data.eachElement(function (elem,idx,idx2) {
-                if (idx2 === -1) idx2 = 0;
-
-                if (!items[idx]) {
-                    items[idx] = {
-                        _x : [],
-                        _top  :  [],
-                        _left  :  [],
-                        _path  :  [],
-                        _width  :  [],
-                        _height  :  [],
-                        _colors : [],
-                        _dcolors : [],
-                        _labels : []
-                    }
-                }
-
-                var element = items[idx];
-
-                barheight = (bottom - cfg.top) * elem.data / cfg.max;
-                barleft = left + idx2 * itemwidth + padding + idx * (barwidth + gap);
-                bartop = bottom - barheight;
-
-                color = Util.Color(self.data.getColor(idx,"bar"));
-                colord = darker(color);
-
-                element._left[idx2] = barleft;
-                element._top[idx2] = bartop;
-                element._width[idx2] = barwidth;
-                element._height[idx2] = barheight;
-                element._path[idx2] = new Path.RectPath(barleft,bartop,barwidth,barheight);
-                element._x[idx2] = barleft+barwidth/2;
-                element._colors[idx2] = color;
-                element._dcolors[idx2] = colord;
-                element._labels[idx2] = elem.label;
-            });
-
-        },
-
-        /**
-         * draw the barElement
-         * @param {Object} Canvas Object
-         */
-        draw : function (ctx) {
-            var self = this,
-                data = self.items,
-                ml = self.maxLength,
-                color,gradiet,colord,chsl,
-                barheight,cheight,barleft,bartop,
-                //for anim
-                k = self.anim.get(),
-                i;
-
-            if (self.data.config.showLabels) {
-                self.drawNames(ctx);
-            }
-
-            S.each(data, function (bar, idx) {
-                for(i = 0; i< ml; i++) {
-                    barleft = bar._left[i];
-                    barheight = bar._height[i];
-                    cheight = barheight * k;
-                    bartop = bar._top[i] + barheight - cheight;
-                    barwidth = bar._width[i];
-                    color =    bar._colors[i];
-                    dcolor =    bar._dcolors[i];
-
-                    //draw backgraound
-                    gradiet = ctx.createLinearGradient(barleft,bartop,barleft,bartop + cheight);
-                    gradiet.addColorStop(0,color.css());
-                    gradiet.addColorStop(1,dcolor.css());
-
-                    ctx.fillStyle = gradiet;
-                    //ctx.fillStyle = color;
-                    ctx.fillRect(barleft,bartop,barwidth,cheight);
-                    //draw label on the bar
-                    if (ml === 1 && barheight > 25) {
-                        ctx.save();
-                        ctx.fillStyle = "#fff";
-                        ctx.font = "20px bold Arial";
-                        ctx.textBaseline = "top";
-                        ctx.textAlign = "center";
-                        data = self.data.elements()[idx];
-                        ctx.fillText(Util.numberFormat(data.data, data.format), bar._x[i], bartop + 2);
-                        ctx.restore();
-                    }
-                }
-
-            });
-
-            if (k < 1) {
-                self.fire("redraw");
-            }
-        },
-
-        initEvent : function () {
-            this.chart.on(MOUSE_MOVE,this.chartMouseMove,this);
-            this.chart.on(MOUSE_LEAVE,this.chartMouseLeave,this);
-        },
-
-        destory : function () {
-            this.chart.detach(MOUSE_MOVE,this.chartMouseMove);
-            this.chart.detach(MOUSE_LEAVE,this.chartMouseLeave);
-        },
-
-        chartMouseMove : function (ev) {
-            var self = this,
-                current = [-1,-1],
-                items = self.items;
-
-            S.each(self.items, function (bar,idx) {
-                S.each(bar._path, function (path,index) {
-                    if (path.inpath(ev.x,ev.y)) {
-                        current = [idx,index];
-                    }
-                });
-            });
-
-            if ( current[0] === self.current[0] && current[1] === self.current[1]) {
-                return;
-            }
-
-            self.current = current;
-
-            if (current[0] + current[1] >= 0) {
-                self.fire("barhover",{index:current});
-                self.fire("showtooltip",{
-                    top : items[current[0]]._top[current[1]],
-                    left : items[current[0]]._x[current[1]],
-                    message : self.getTooltip(current)
-                });
-            }else{
-                self.fire("hidetooltip");
-            }
-        },
-
-        chartMouseLeave : function () {
-            this.current = [-1,-1];
-        },
-        /**
-         * get tip HTML by id
-         * @return {String}
-         **/
-        getTooltip : function (index) {
-            var self = this,
-                eidx = index[0],
-                didx = index[1],
-                item = self.items[eidx],
-                msg = "<div class='bartip'>"+
-                    "<span style='color:"+item._colors[didx].css()+";'>"+
-                    item._labels[didx]+"</span></div>";
-            return msg;
-        },
-        
-        drawNames : function (ctx) {
-            var self = this,
-                cfg = self.drawcfg,
-                data = self.data.elements(),
-                l = data.length,
-                i = l - 1,
-                br = cfg.width - cfg.paddingRight,
-                by = cfg.paddingTop - 12,
-                d,
-                c;
-
-            for(; i>=0; i--) {
-                d = data[i];
-                if (d.notdraw) {
-                    continue;
-                }
-                c = self.data.getColor(i);
-                //draw text
-                ctx.save();
-                ctx.textAlign = "end";
-                ctx.textBaseline = "middle";
-                ctx.fillStyle = "#808080";
-                ctx.font = "12px Arial";
-                ctx.fillText(d.name, br, by);
-                br -= ctx.measureText(d.name).width + 10;
-                ctx.restore();
-                //draw color dot
-                ctx.save();
-                ctx.beginPath();
-                ctx.fillStyle = c;
-                ctx.arc(br,by,5,0,Math.PI*2,true);
-                ctx.closePath();
-                ctx.fill();
-                ctx.restore();
-                br -= 10;
-            }
-        }
-    });
-
-    return BarElement;
-},{
-    requires : ["chart/util", "chart/path"]
-});
-KISSY.add('chart/element_line', function(S, Util) {
-    /**
-     * class Element for Line chart
-     */
-    function LineElement(data,chart,drawcfg) {
-        var self = this;
-        self.chart = chart;
-        self.data = data;
-        self.elements = data.elements();
-        self._current = -1;
-        self.config = data.config;
-        self.drawcfg = drawcfg;
-        self.initdata(drawcfg);
-        self._ready_idx = -1;
-        self.init();
-
-        self.anim = new Util.Anim(self.config.animationDuration,self.config.animationEasing);
-        self.anim.init();
-    }
-
-    S.augment(LineElement, S.EventTarget, {
-        /**
-         * 根据数据源，生成图形数据
-         */
-        initdata : function(cfg) {
-            var self = this,
-                data = self.data,
-                elements = self.elements,
-                ml = data.maxElementLength(),
-                left = cfg.paddingLeft,
-                bottom = cfg.height - cfg.paddingBottom,
-                height = bottom - cfg.paddingTop,
-                width = cfg.width - cfg.paddingRight - left,
-                gap = width/(ml-1),
-                maxtop, i,j;
-            var items = [];
-            self.items = items;
-
-            data.eachElement(function(elem,idx,idx2) {
-                if(!items[idx]) {
-                    items[idx] = {
-                        _points : [],
-                        _labels : [],
-                        _color : data.getColor(idx),
-                        _maxtop : bottom,
-                        _drawbg : idx === data.config.drawbg
-                    };
-                }
-                var element = items[idx];
-                ptop = Math.max(bottom - elem.data/ cfg.max * height , cfg.paddingTop - 5);
-                element._maxtop = Math.min(element._maxtop, ptop);
-                element._labels[idx2] = elem.label;
-                element._points[idx2] = {
-                    x : left + gap*idx2,
-                    y : ptop,
-                    bottom : bottom
-                };
-
-            });
-
-        },
-
-        draw : function(ctx,cfg) {
-            var self = this,
-                data = self.data,
-                left = cfg.paddingLeft,
-                right = cfg.width - cfg.paddingRight,
-                top = cfg.paddingTop,
-                bottom = cfg.height - cfg.paddingBottom,
-                height = bottom - top,
-                max = cfg.max,
-                color,
-                ptop,
-                points,i,l,t,
-                k = self.anim.get(), gradiet;
-
-
-            if(data.config.showLabels) {
-                self.drawNames(ctx,cfg);
-            }
-
-            // the animation
-            if(k >= 1 && this._ready_idx < self.items.length -1) {
-                self._ready_idx ++;
-                self.anim.init();
-                k = self.anim.get();
-            }
-
-            if(this._ready_idx !== data.elements().length-1 || k!==1) {
-                this.fire("redraw");
-            }
-
-            S.each(self.items,function(linecfg,idx) {
-                var p;
-                if (idx !== self._ready_idx) {
-                    t = (idx > self._ready_idx)?0:1;
-                }else{
-                    t = k;
-                }
-
-                color = linecfg._color;
-                points = linecfg._points;
-
-                //draw bg
-                if(linecfg._drawbg) {
-                    ctx.save();
-                    ctx.globalAlpha = 0.4;
-                    maxtop = bottom - (bottom - linecfg._maxtop) * t;
-
-                    gradiet = ctx.createLinearGradient( left, maxtop, left, bottom);
-                    gradiet.addColorStop(0,color);
-                    gradiet.addColorStop(1,"rgb(255,255,255)");
-
-                    ctx.fillStyle = gradiet;
-                    ctx.beginPath();
-                    ctx.moveTo(left,bottom);
-
-                    for(i = 0; i < points.length; i++) {
-                        p = points[i];
-                        ptop = bottom - (bottom - p.y)*t;
-                        ctx.lineTo(p.x,ptop);
-                    }
-
-                    ctx.lineTo(right,bottom);
-                    ctx.stroke();
-                    ctx.fill();
-                    ctx.restore();
-                }
-
-                //draw line
-                ctx.save();
-                l = points.length;
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                for(i = 0; i < l; i++) {
-                    p = points[i];
-                    ptop = bottom - (bottom - p.y)*t;
-                    if(i===0) {
-                        ctx.moveTo(p.x,ptop);
-                    } else {
-                        ctx.lineTo(p.x,ptop);
-                    }
-                }
-                ctx.stroke();
-                ctx.restore();
-
-                //draw point
-                ctx.save();
-                for(i = 0; i < l; i++) {
-                    p = points[i];
-                    ptop = bottom - (bottom - p.y)*t;
-                    //circle outter
-                    ctx.fillStyle = color;
-                    ctx.beginPath();
-                    ctx.arc(p.x,ptop,5,0,Math.PI*2,true);
-                    ctx.closePath();
-                    ctx.fill();
-                    //circle innner
-                    if(i !== self._current) {
-                        ctx.fillStyle = "#fff";
-                        ctx.beginPath();
-                        ctx.arc(p.x,ptop,3,0,Math.PI*2,true);
-                        ctx.closePath();
-                        ctx.fill();
-                    }
-                }
-                ctx.restore();
-            });
-        },
-
-        init : function() {
-            this._ready_idx = 0;
-            this.chart.on("axishover",this._axis_hover,this);
-            this.chart.on("axisleave",this._axis_leave,this);
-        },
-
-        destory : function() {
-            this.chart.detach("axishover",this._axis_hover);
-            this.chart.detach("axisleave",this._axis_leave);
-        },
-
-        _axis_hover : function(e) {
-            var idx = e.index;
-            if(this._current !== idx) {
-                this._current = idx;
-                this.fire("redraw");
-                this.fire("showtooltip",{
-                    message : this.getTooltip(idx)
-                });
-            }
-        },
-
-        _axis_leave : function(e) {
-            this._current = -1;
-            this.fire("redraw");
-        },
-        /**
-         * get tip HTML by id
-         * @return {String}
-         **/
-        getTooltip : function(index) {
-            var self = this, ul, li;
-            ul= "<ul>";
-            S.each(self.items, function(item,idx) {
-                li = "<li><p style='color:" + item._color + "'>" +
-                        item._labels[index] +
-                    "</p></li>";
-                ul += li
-            });
-            ul += "</ul>";
-            return ul;
-        },
-        drawNames : function(ctx) {
-            var self = this,
-                cfg = self.drawcfg,
-                data = self.data.elements(),
-                l = data.length,
-                i = l - 1,
-                br = cfg.width - cfg.paddingRight,
-                by = cfg.paddingTop - 12,
-                d,
-                c;
-
-            for(; i>=0; i--) {
-                d = data[i];
-                if(d.notdraw) {
-                    continue;
-                }
-                c = self.data.getColor(i);
-                //draw text
-                ctx.save();
-                ctx.textAlign = "end";
-                ctx.textBaseline = "middle";
-                ctx.fillStyle = "#808080";
-                ctx.font = "12px Arial";
-                ctx.fillText(d.name, br, by);
-                br -= ctx.measureText(d.name).width + 10;
-                ctx.restore();
-                //draw color dot
-                ctx.save();
-                ctx.beginPath();
-                ctx.fillStyle = c;
-                ctx.arc(br,by,5,0,Math.PI*2,true);
-                ctx.closePath();
-                ctx.fill();
-                ctx.restore();
-                br -= 10;
-            }
-        }
-
-    });
-
-    return LineElement;
-},
-{
-    requires : ["chart/util"]
 });
 KISSY.add('chart/element_pie', function (S, Util) {
     var MOUSE_LEAVE = "mouse_leave",
@@ -2026,17 +2144,24 @@ KISSY.add("chart/frame",function(S, Path){
     /**
      * The Border Layer
      */
-    function Frame(data,cfg){
+    function Frame(chart, data){
+        var self = this,
+            config = data.config,
+            width = chart.width,
+            height = chart.height;
+
         this.data = data;
+
         this.path = new Path.RectPath(
-                        cfg.paddingLeft,
-                        cfg.paddingTop,
-                        cfg.width - cfg.paddingRight - cfg.paddingLeft,
-                        cfg.height - cfg.paddingBottom - cfg.paddingTop
+                        config.paddingLeft,
+                        config.paddingTop,
+                        width - config.paddingRight - config.paddingLeft,
+                        height - config.paddingBottom - config.paddingTop
                     );
     }
+
     S.augment(Frame,{
-        draw : function(ctx,cfg){
+        draw : function(ctx){
             ctx.save();
             ctx.strokeStyle = this.data.config.frameColor;
             ctx.lineWidth = 2.0;

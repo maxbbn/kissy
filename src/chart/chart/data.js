@@ -6,19 +6,24 @@ KISSY.add('chart/data', function(S, Util){
         //上边距
         paddingTop: 30,
         //左边距
-        paddingLeft : 20,
+        paddingLeft : 40,
         //右边距
         paddingRight : 20,
         //底边距
         paddingBottom : 20,
         //是否显示标签
         showLabels : true,
-
+        //颜色配置
         colors : [],
         //动画间隔
         animationDuration : .5,
         //动画Easing函数
         animationEasing : "easeInStrong",
+        // 不显示Y座标名称
+        hideYAxisName : false,
+
+        // 不显示X座标名称
+        hideXAxisName : true,
         //背景色 或 背景渐变
         /*
         {
@@ -79,7 +84,7 @@ KISSY.add('chart/data', function(S, Util){
      * @constructor
      * @param {Object} 输入的图表JSON数据
      */
-    function Data(data) {
+    function Data(data, drawcfg) {
         if (!data || !data.type) return;
         if (!this instanceof Data)
             return new Data(data);
@@ -109,6 +114,7 @@ KISSY.add('chart/data', function(S, Util){
         self._elements = self._expandElement(self._initElement(data));
         self._initElementItem();
         self._axis = data.axis;
+        self.y_max = self.getMax(self.max(), drawcfg);
     }
 
     S.augment(Data, /**@lends Data.protoptype*/{
@@ -181,6 +187,30 @@ KISSY.add('chart/data', function(S, Util){
          */
         max : function () {
             return this._max;
+        },
+
+        getMax : function(max, cfg) {
+            var config = this.config,
+                h = cfg.height - config.paddingBottom - config.paddingTop,
+                n = Math.ceil(h / 40),
+                g = max / n,
+                i;
+
+            if (g <= 1) {
+                g = 1;
+            } else if (g > 1 && g <= 5) {
+                g = Math.ceil(g);
+            } else if (g > 5 && g <= 10) {
+                g = 10;
+            } else {
+                i = 1;
+                do{
+                    i *= 10;
+                    g = g / 10;
+                } while (g > 10)
+                g = Math.ceil(g) * i;
+            }
+            return g * n;
         },
 
         /**
@@ -310,7 +340,7 @@ KISSY.add('chart/data', function(S, Util){
 
             self._max = 0;
 
-            self.eachElement(function (elem,idx,idx2) {
+            self.eachElement(function (elem, idx, idx2) {
                 var label;
 
                 //统计最大值
@@ -339,6 +369,8 @@ KISSY.add('chart/data', function(S, Util){
                         data : elem.format && typeof elem.data === 'number' ? Util.numberFormat(elem.data, elem.format) : elem.data
                     }
                 );
+
+                elem.notdraw = self._elements[idx].notdraw;
 
             });
         }

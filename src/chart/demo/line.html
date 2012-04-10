@@ -3,10 +3,9 @@
 <head>
 	<meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge" >
-	<title>chart demo</title>
+	<title>Line Chart</title>
     <link rel="stylesheet" href="http://a.tbcdn.cn/s/kissy/1.1.6/cssreset/reset-min.css" />
     <link rel="stylesheet" href="../assets/chart.css" />
-    <link rel="stylesheet" href="../assets/test.css" />
     <script src="../../../build/kissy.js"></script>
     <!--[if lt IE 9]>
     <script type="text/javascript" src="http://a.tbcdn.cn/mods/flashcanvas/1.5.1/flashcanvas.js"></script>
@@ -55,9 +54,9 @@ KISSY.use("chart/chart", function(S, Chart){
             }
         },
         config : {
-            //colors : ["#aaa","#999","#666"],
             background:"#fff",
-            drawbg : false
+            drawbg : false,
+            paddingLeft : 40
         }
     });
 });
@@ -102,8 +101,59 @@ KISSY.use("chart/chart", function(S,Chart){
                 end : "#666"
             },
             numberFormat : '0',
-            showLabels: false,
-            left : 30
+            hideYAxisName : true,
+            paddingLeft : 40
+        }
+    });
+});
+
+</script>
+
+<canvas style="background:#fff;" id="chart3" width="600" height="400"></canvas>
+<script>
+    /*
+    */
+KISSY.use("chart/chart", function(S,Chart){
+    var pie = new Chart("#chart3",{
+        type : "line",
+        elements : [
+            {
+                name : "降价时间",
+                datas : [0,0,0,0,0],
+                labels : [
+                    "{name} : 2012-09-10 12:23:23",
+                    "{name} : 2012-09-10 12:23:23",
+                    "{name} : 2012-09-10 12:23:23",
+                    "{name} : 2012-09-10 12:23:23",
+                    "{name} : 2012-09-10 12:23:23"
+                ],
+                notdraw : true
+            },
+            {
+                name : "接待人数",
+                datas : [10,17,19,10,13],
+                label : "{name} : {data}人"
+            },
+            {
+                name : "回复人数",
+                datas : [22,12,18,27,21],
+                label : "{name} : {data}人"
+            }
+        ],
+        axis : {
+            x : {
+                name : "时间",
+                labels : ["2011-1-10","2011-1-11","2011-1-12","2011-1-13","2011-1-14"]
+            },
+            y : {
+                name : "人数"
+            }
+        },
+        config : {
+            drawbg : 0,
+            numberFormat : '0.00',
+            hideYAxisName : true,
+            paddingLeft : 40
         }
     });
 });

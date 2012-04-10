@@ -3,17 +3,24 @@ KISSY.add("chart/frame",function(S, Path){
     /**
      * The Border Layer
      */
-    function Frame(data,cfg){
+    function Frame(chart, data){
+        var self = this,
+            config = data.config,
+            width = chart.width,
+            height = chart.height;
+
         this.data = data;
+
         this.path = new Path.RectPath(
-                        cfg.paddingLeft,
-                        cfg.paddingTop,
-                        cfg.width - cfg.paddingRight - cfg.paddingLeft,
-                        cfg.height - cfg.paddingBottom - cfg.paddingTop
+                        config.paddingLeft,
+                        config.paddingTop,
+                        width - config.paddingRight - config.paddingLeft,
+                        height - config.paddingBottom - config.paddingTop
                     );
     }
+
     S.augment(Frame,{
-        draw : function(ctx,cfg){
+        draw : function(ctx){
             ctx.save();
             ctx.strokeStyle = this.data.config.frameColor;
             ctx.lineWidth = 2.0;
