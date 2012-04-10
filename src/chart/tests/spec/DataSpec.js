@@ -177,27 +177,27 @@ describe("Chart Data", function() {
 
         it('format the number', function() {
             expect(data.elements()).toEqual([{
-                name: 'a'，
+                name: 'a',
                 data: 0,
                 label: 'a 0.00',
                 format: '0.00'
             }, {
-                name: 'b'，
+                name: 'b',
                 data: null,
                 label: 'b null',
                 format: '0.00'
             }, {
-                name: 'c'，
+                name: 'c',
                 data: 1,
                 label: 'c 1.00',
                 format: '0.00'
             }, {
-                name: 'd'，
+                name: 'd',
                 data: -1,
                 label: 'd 0.00',
                 format: '0.00'
             }, {
-                name: 'e'，
+                name: 'e',
                 data: .99,
                 label: 'e .99',
                 format: '0.00'
