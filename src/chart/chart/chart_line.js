@@ -38,7 +38,7 @@ KISSY.add('chart/chart_line', function(S, Util, Axis, Frame) {
                 elements = self.elements,
                 ml = data.maxElementLength(),
                 left = config.paddingLeft,
-                max = data.y_max,
+                yMax = data.getMax(height),
                 bottom = height - config.paddingBottom,
                 height = bottom - config.paddingTop,
                 width = width - config.paddingRight - left,
@@ -63,7 +63,7 @@ KISSY.add('chart/chart_line', function(S, Util, Axis, Frame) {
                 }
                 var element = items[idx];
                 ptop = Math.max(
-                    bottom - elem.data / max * height,
+                    bottom - elem.data / yMax * height,
                     config.paddingTop - 5
                 );
                 element._maxtop = Math.min(element._maxtop, ptop);
@@ -89,7 +89,6 @@ KISSY.add('chart/chart_line', function(S, Util, Axis, Frame) {
                 top = config.paddingTop,
                 bottom = cfg.height - config.paddingBottom,
                 height = bottom - top,
-                max = data.y_max,
                 color,
                 ptop,
                 points,

@@ -61,7 +61,6 @@ KISSY.add('chart/chart_bar', function (S, Util, Path, Axis, Frame) {
                 color;
 
             self.maxLength = maxlength;
-
             self.items = items;
             self.data.eachElement(function (elem,idx,idx2) {
                 if (idx2 === -1) idx2 = 0;
@@ -82,7 +81,7 @@ KISSY.add('chart/chart_bar', function (S, Util, Path, Axis, Frame) {
 
                 var element = items[idx];
 
-                barheight = (bottom - paddingTop) * elem.data / data.y_max;
+                barheight = (bottom - paddingTop) * elem.data / data.getMax(height);
                 barleft = left + idx2 * itemwidth + padding + idx * (barwidth + gap);
                 bartop = bottom - barheight;
 

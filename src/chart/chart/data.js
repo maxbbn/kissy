@@ -114,7 +114,6 @@ KISSY.add('chart/data', function(S, Util){
         self._elements = self._expandElement(self._initElement(data));
         self._initElementItem();
         self._axis = data.axis;
-        self.y_max = self.getMax(self.max(), drawcfg);
     }
 
     S.augment(Data, /**@lends Data.protoptype*/{
@@ -188,12 +187,18 @@ KISSY.add('chart/data', function(S, Util){
         max : function () {
             return this._max;
         },
-
-        getMax : function(max, cfg) {
-            var config = this.config,
-                h = cfg.height - config.paddingBottom - config.paddingTop,
+        /**
+         * 获取 Y 坐标最高点
+         * //TODO 重构这个方法
+         * @param  {Number} height the height of Chart.
+         * @return {Number}        the max y axis value
+         */
+        getMax : function(height) {
+            var self = this,
+                config = self.config,
+                h = height - config.paddingBottom - config.paddingTop,
                 n = Math.ceil(h / 40),
-                g = max / n,
+                g = self.max() / n,
                 i;
 
             if (g <= 1) {

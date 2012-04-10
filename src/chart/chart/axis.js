@@ -41,7 +41,7 @@ KISSY.add('chart/axis', function(S, Path) {
                 height = chart.height,
                 width = chart.width,
                 axisData = self.axisData,
-                max = self.data.y_max,
+                max = self.data.getMax(height),
                 n = Math.ceil((height - config.paddingBottom - config.paddingTop) / 40),
                 g = max / n,
                 labels = [];
@@ -296,7 +296,7 @@ KISSY.add('chart/axis', function(S, Path) {
             if (config.hideYAxisName && config.hideXAxisName) {
                 return;
             }
-            
+
             ctx.save();
             ctx.font = "10px Arial";
             ctx.fillStyle = "#808080";
