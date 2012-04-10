@@ -1,4 +1,4 @@
-KISSY.add("chart/chart", function (S, Util, Data, SimpleTooltip, ChartLine, ChartBar) {
+KISSY.add("chart/chart", function (S, Util, Data, SimpleTooltip, ChartLine, ChartBar, ChartPie) {
 
     /**
      * 图表默认配置
@@ -475,6 +475,7 @@ KISSY.add("chart/chart", function (S, Util, Data, SimpleTooltip, ChartLine, Char
 
     Chart.addType(ChartLine);
     Chart.addType(ChartBar);
+    Chart.addType(ChartPie);
     /*export*/
     chartManager = window.chartManager = new ChartManager();
     S.Chart = Chart;
@@ -486,6 +487,7 @@ KISSY.add("chart/chart", function (S, Util, Data, SimpleTooltip, ChartLine, Char
         'chart/data',
         'chart/simpletooltip',
         'chart/chart_line',
-        'chart/chart_bar'
+        'chart/chart_bar',
+        'chart/chart_pie'
     ]
 });
