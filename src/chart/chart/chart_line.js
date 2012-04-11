@@ -140,10 +140,12 @@ KISSY.add('chart/chart_line', function(S, Util, Axis, Frame) {
 
                     ctx.fillStyle = gradiet;
                     ctx.beginPath();
+
                     ctx.moveTo(left, bottom);
 
                     for (i = 0; i < points.length; i++) {
                         p = points[i];
+                        if (p.nodata) continue;
                         ptop = bottom - (bottom - p.y) * t;
                         ctx.lineTo(p.x, ptop);
                     }
