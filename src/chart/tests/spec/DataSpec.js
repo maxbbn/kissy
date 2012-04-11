@@ -1,4 +1,4 @@
-describe("Chart Data", function() {
+describe("Chart Data", function() ｛
     describe("指定label;", function() {
         var data1,
             json1,
