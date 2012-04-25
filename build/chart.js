@@ -1,7 +1,7 @@
 ﻿/*
 Copyright 2012, KISSY UI Library v1.30dev
 MIT Licensed
-build time: Apr 11 17:44
+build time: Apr 25 16:15
 */
 /*global KISSY */
 KISSY.add('chart/axis', function(S, Path) {
@@ -1215,7 +1215,10 @@ KISSY.add('chart/chart_line', function(S, Util, Axis, Frame) {
             }
 
             S.each(self.items, function(linecfg, idx) {
-                var p;
+                var p,
+                    startPoint,
+                    endPoint;
+                    
                 if (linecfg._notdraw) {
                     return;
                 }
@@ -1241,17 +1244,24 @@ KISSY.add('chart/chart_line', function(S, Util, Axis, Frame) {
                     ctx.fillStyle = gradiet;
                     ctx.beginPath();
 
-                    ctx.moveTo(left, bottom);
+                    
+                    
 
                     for (i = 0; i < points.length; i++) {
                         p = points[i];
                         if (p.nodata) continue;
+
+                        if (!startPoint) {
+                            startPoint = p;
+                            ctx.moveTo(startPoint.x, bottom);
+                        }
+                        endPoint = p;
                         ptop = bottom - (bottom - p.y) * t;
                         ctx.lineTo(p.x, ptop);
                     }
 
-                    ctx.lineTo(right, bottom);
-                    ctx.stroke();
+                    ctx.lineTo(endPoint.x, bottom);
+
                     ctx.fill();
                     ctx.restore();
                 }

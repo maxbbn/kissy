@@ -158,7 +158,9 @@ KISSY.use("chart/chart", function(S,Chart){
     });
 });
 
-</script><canvas style="background:#fff;" id="chart4" width="600" height="400"></canvas>
+</script>
+
+<canvas style="background:#fff;" id="chart4" width="600" height="400"></canvas>
 <script>
     /*
     */
@@ -178,6 +180,48 @@ KISSY.use("chart/chart", function(S,Chart){
             "datas": [400, 300, null, 154, 200, 230],
             "label": "{name} : {data}元"
         }],
+        "axis": {
+            "x": {
+                "name": "时间",
+                "labels": ["1/10", "2/11", "2/12", "2/13", "2/14", "1/15"]
+            },
+            "y": {
+                "name": "人数"
+            }
+        },
+        "config": {
+            "drawbg": 2,
+            "paddingLeft": 40,
+            "background": "#fff"
+        }
+    });
+});
+
+</script>
+
+
+<canvas style="background:#fff;" id="chart5" width="600" height="400"></canvas>
+<script>
+    /*
+    */
+KISSY.use("chart/chart", function(S,Chart){
+    var pie = new Chart("#chart5",{
+        "type": "line",
+        "elements": [{
+            "name": "该商家历史价格",
+            "datas": [900, 70, 800, 400, 200, 500],
+            "label": "{name} : {data}元"
+        }, {
+            "name": "全网均价",
+            "datas": [500, 350, 156, 257, 200, 321],
+            "label": "{name} : {data}人"
+        }, {
+            "name": "全网最低价",
+            "drawbg": true,
+            "datas": [null, 300, null, 154, 200, null],
+            "label": "{name} : {data}元"
+        }],
+
         "axis": {
             "x": {
                 "name": "时间",

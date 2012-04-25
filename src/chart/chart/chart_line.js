@@ -115,7 +115,10 @@ KISSY.add('chart/chart_line', function(S, Util, Axis, Frame) {
             }
 
             S.each(self.items, function(linecfg, idx) {
-                var p;
+                var p,
+                    startPoint,
+                    endPoint;
+                    
                 if (linecfg._notdraw) {
                     return;
                 }
@@ -141,17 +144,24 @@ KISSY.add('chart/chart_line', function(S, Util, Axis, Frame) {
                     ctx.fillStyle = gradiet;
                     ctx.beginPath();
 
-                    ctx.moveTo(left, bottom);
+                    
+                    
 
                     for (i = 0; i < points.length; i++) {
                         p = points[i];
                         if (p.nodata) continue;
+
+                        if (!startPoint) {
+                            startPoint = p;
+                            ctx.moveTo(startPoint.x, bottom);
+                        }
+                        endPoint = p;
                         ptop = bottom - (bottom - p.y) * t;
                         ctx.lineTo(p.x, ptop);
                     }
 
-                    ctx.lineTo(right, bottom);
-                    ctx.stroke();
+                    ctx.lineTo(endPoint.x, bottom);
+
                     ctx.fill();
                     ctx.restore();
                 }
